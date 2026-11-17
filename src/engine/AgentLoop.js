@@ -17,7 +17,7 @@ class AgentLoop {
     this.state = 'IDLE'; // IDLE | OBSERVING | THINKING | SAFETY_CHECK | ACTING | VERIFYING | COMPLETED | PAUSED
     this.currentGoal = '';
     this.stepIndex = 0;
-    this.maxSteps = options.maxSteps || 15;
+    this.maxSteps = options.maxSteps !== undefined ? options.maxSteps : Infinity; // Unlimited steps by default
     this.history = [];
     this.isRunning = false;
 
@@ -61,7 +61,7 @@ class AgentLoop {
   }
 
   async runLoop() {
-    while (this.isRunning && this.stepIndex < this.maxSteps) {
+    while (this.isRunning && (this.maxSteps === Infinity || this.stepIndex < this.maxSteps)) {
       this.stepIndex++;
 
       // 1. Observe: Capture and Prune screen
@@ -210,7 +210,7 @@ class AgentLoop {
       await new Promise(r => setTimeout(r, 450));
     }
 
-    if (this.stepIndex >= this.maxSteps && this.isRunning) {
+    if (this.maxSteps !== Infinity && this.stepIndex >= this.maxSteps && this.isRunning) {
       this.stop();
       this.callbacks.onComplete({
         success: false,

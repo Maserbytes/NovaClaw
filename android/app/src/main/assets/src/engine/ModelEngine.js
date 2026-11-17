@@ -533,9 +533,9 @@ Output JSON only:
 
       // Scroll down Settings list to find Battery
       const scrollCount = history.filter(h => h.type === 'scroll').length;
-      if (scrollCount < 5) {
+      if (scrollCount < 15) {
         return {
-          thought: `Battery option is not yet visible in viewport. Scrolling down (attempt ${scrollCount + 1}/5).`,
+          thought: `Battery option is not yet visible in viewport. Scrolling down (attempt ${scrollCount + 1}/15) to locate option.`,
           action: 'scroll',
           target_id: null,
           payload: 'down'

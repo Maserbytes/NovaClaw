@@ -35,39 +35,38 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.9.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.10.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.9-apk
-          path: dist/NovaClaw-v1.0.9.apk
+          name: NovaClaw-v1.0.10-apk
+          path: dist/NovaClaw-v1.0.10.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.9
-          name: "NovaClaw v1.0.9 — On-Device Cognitive Reasoner & Model Download Fix"
+          tag_name: v1.0.10
+          name: "NovaClaw v1.0.10 — Unlimited Steps & Full Local AI Model Execution"
           body: |
-            ## 📱 NovaClaw v1.0.9 Release: On-Device Cognitive Reasoner & Download Fix
+            ## 📱 NovaClaw v1.0.10 Release: Unlimited Steps & Full Local AI Execution
 
-            ### 🚀 What's New in v1.0.9:
-            - **🛡️ Fixed Re-Download Issue**:
-              - When a model (Gemma 4 or Llama 3.2) is already downloaded on your device, the button locks to `✓ Active Model (Ready)` in emerald green.
-              - Tapping it never re-downloads; it instantly activates the model.
-              - Added dedicated `🗑️ Delete & Re-download` option if you ever need to clear weights.
-            - **🧠 On-Device Autonomous Cognitive Reasoner**:
-              - Completely eliminates canned "Active screen does not contain elements" errors.
-              - Handles conversational chats, typos (like "Hu", "Hi", "Hello"), and general questions directly on-device with friendly NovaClaw responses.
-            - **📱 Dynamic App Resolver & Launcher**:
-              - You can now launch ANY app installed on your phone (e.g. "Open Camera", "Open YouTube", "Open Settings", "Open Spotify", "Open Chrome") dynamically via native Android Package resolution.
-            - **🔍 Screen Search & Deep Navigation**:
-              - Automatically locates and types into app search bars or scrolls containers to locate targets like Battery Saver across all Android OEMs (OnePlus, Samsung, Xiaomi, Pixel).
+            ### 🚀 What's New in v1.0.10:
+            - **♾️ Removed Maximum Step Limit**:
+              - Completely eliminated the artificial 12-step limit!
+              - NovaClaw now operates continuously until your autonomous goal is fully accomplished, or until you tap the **Stop** button.
+            - **🧠 Full Local AI Model Execution for Everything**:
+              - Google Gemma 4 (On-Device Local AI) is now the primary, unrestricted driver for all phone tasks.
+              - Every reasoning pill explicitly displays `Step X Reasoning • Gemma 4 Local` with deep chain-of-thought observations.
+            - **🔍 Deep Settings & App Navigation**:
+              - Increased list search and navigation scans to allow exhaustive exploration of deep OEM menus (OnePlus/ColorOS, Samsung OneUI, Xiaomi HyperOS).
+            - **⚡ Live Status Header**:
+              - The execution bar displays `Step X • Gemma 4 Active` in real-time.
 
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.9.apk` below directly to your phone.
-          files: dist/NovaClaw-v1.0.9.apk
+            Download `NovaClaw-v1.0.10.apk` below directly to your phone.
+          files: dist/NovaClaw-v1.0.10.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -608,6 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function appendThoughtToStream(stepIndex, thoughtText, plan) {
     if (!activeAssistantContainer) createAssistantSlot();
 
+    const activeModel = modelEngine.getSelectedModel();
+    const modelBadge = activeModel.id === 'api-gemini' ? 'Gemini Flash' : (activeModel.id === 'local-ollama' ? 'Ollama' : 'Gemma 4 Local');
+
     const block = document.createElement('div');
     block.id = `turn-step-${stepIndex}`;
     block.className = 'space-y-1 text-xs';
@@ -615,10 +618,14 @@ document.addEventListener('DOMContentLoaded', () => {
     block.innerHTML = `
       <div>
         <div class="thought-pill" onclick="this.nextElementSibling.classList.toggle('hidden')">
-          <span>💭 Step ${stepIndex} Reasoning</span>
+          <span>💭 Step ${stepIndex} Reasoning • <span class="text-purple-400 font-semibold">${modelBadge}</span></span>
           <span class="text-[9px]">▾</span>
         </div>
         <div class="thought-drawer">
+          <div class="text-[10px] text-purple-300 font-mono mb-1.5 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+            <span>[Local AI Engine: ${escapeHtml(activeModel.name)}]</span>
+          </div>
           ${escapeHtml(thoughtText)}
         </div>
       </div>
@@ -727,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
     verifier,
     modelEngine,
     environment: deviceEnv,
-    maxSteps: 12,
+    maxSteps: Infinity,
     onStateChange: (state) => {
       if (state === 'IDLE') {
         executionStatusBar.classList.add('hidden');
@@ -737,7 +744,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
     onStep: (step) => {
-      stepCounterLabel.textContent = `Step ${step.stepIndex}/12`;
+      const modelName = modelEngine.getSelectedModel().name.split(' ')[1] || 'Gemma 4';
+      stepCounterLabel.textContent = `Step ${step.stepIndex} • ${modelName} Active`;
     },
     onThought: ({ stepIndex, thought, plan }) => {
       appendThoughtToStream(stepIndex, thought, plan);
