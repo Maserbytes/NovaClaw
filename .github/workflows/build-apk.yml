@@ -35,32 +35,32 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/NovaClaw-v1.0.1.apk \;
+          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/NovaClaw-v1.0.2.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.1-apk
-          path: dist/NovaClaw-v1.0.1.apk
+          name: NovaClaw-v1.0.2-apk
+          path: dist/NovaClaw-v1.0.2.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.1
-          name: "NovaClaw v1.0.1 — Clean Mobile UI & Native Accessibility Integration"
+          tag_name: v1.0.2
+          name: "NovaClaw v1.0.2 — Authentic ChatGPT Mobile Design & Side Drawer"
           body: |
-            ## 📱 NovaClaw v1.0.1 Update
+            ## 📱 NovaClaw v1.0.2 Update
             
-            ### 🛠️ Improvements in v1.0.1:
-            - **Native Mobile Viewport Fix**: Completely removed the redundant desktop phone frame mockup when viewed on a phone. The app now natively fills your full mobile screen with zero horizontal overflow or clipping!
-            - **Permission Onboarding Banner**: Prominently prompts for **Accessibility Permission** with a 1-tap direct shortcut to Android Settings on launch.
-            - **Native Device Automation Bridge**: Connected the UI directly to real phone commands via `AndroidBridge` — real app launching, real gesture tapping, and real screen node perception.
-            - **ChatGPT Mobile UI Refinement**: Beautiful clean whitish background, smooth frosted glass cards, collapsible thought accordions, and streamlined quick-prompt cards.
+            ### ✨ Exact ChatGPT Mobile Design (Images Match):
+            - **Clean Minimalist Home Screen**: Replaced crowded cards with the exact ChatGPT mobile layout ("Where should we start?" with simple, clean prompt rows).
+            - **Side Drawer Navigation**: All configurations, model switcher, accessibility status, and permissions are tucked neatly into a smooth slide-out side drawer (tap `☰` on top left).
+            - **ChatGPT Bottom Pill Bar**: Clean rounded dark pill composer with `+` action button, auto-scaling input, and send icon.
+            - **Collapsible Thought Pills**: Compact `💭 Step Reasoning ▾` pills that expand without cluttering the screen.
             
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.1.apk` below directly to your Android phone.
-          files: dist/NovaClaw-v1.0.1.apk
+            Download `NovaClaw-v1.0.2.apk` below directly to your phone.
+          files: dist/NovaClaw-v1.0.2.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

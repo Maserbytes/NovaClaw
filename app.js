@@ -1,19 +1,18 @@
 /**
- * NovaClaw Application Controller (Mobile-Optimized)
- * Bridges ChatGPT-style frontend to real Android Accessibility Service (or simulation).
+ * NovaClaw Application Controller
+ * Replicates the clean, minimalist ChatGPT Mobile UI with slide-out navigation drawer.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Engines
   const pruner = new SemanticUIPruner({ viewportWidth: window.innerWidth || 390, viewportHeight: window.innerHeight || 844 });
   const safetyShield = new SafetyShield();
-  const verifier = new ActionVerifier({ settleDelayMs: 400 });
+  const verifier = new ActionVerifier({ settleDelayMs: 350 });
   const modelEngine = new ModelEngine();
 
-  // Detect whether running inside the native Android APK
   const isAndroidNative = typeof window.AndroidBridge !== 'undefined';
 
-  // 2. Real Device Environment vs Web Simulation Environment
+  // 2. Real Mobile Device Environment vs Web Simulation
   class DeviceEnvironment {
     constructor() {
       this.isNative = isAndroidNative;
@@ -44,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
           }
         } catch (e) {
-          console.warn('[NovaClaw] Failed to capture real screen:', e);
+          console.warn('[NovaClaw] Screen capture error:', e);
         }
       }
       return this.simScreen;
@@ -54,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (this.isNative) {
         if (action.type === 'launch_app') {
           window.AndroidBridge.launchApp(action.payload);
-        } else if (action.type === 'click' && action.targetElement && action.targetElement.center) {
+        } else if (action.type === 'click' && action.targetElement?.center) {
           window.AndroidBridge.performTap(action.targetElement.center.x, action.targetElement.center.y);
         } else if (action.type === 'type') {
           window.AndroidBridge.performText(action.targetId || 1, action.payload || '');
@@ -63,12 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (action.type === 'key_home') {
           window.AndroidBridge.performHome();
         }
-        // Brief delay to let the phone UI update
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 450));
         return;
       }
 
-      // Simulation mode fallback
+      // Simulation fallback
       if (action.type === 'launch_app') {
         const pkg = (action.payload || '').toLowerCase();
         if (pkg.includes('whatsapp')) this.simScreen = MOCK_APPS.WHATSAPP_CHAT_LIST;
@@ -77,13 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (pkg.includes('bank')) this.simScreen = MOCK_APPS.BANK_PROTECTED_APP;
       } else if (action.type === 'click') {
         const label = (action.targetElement?.label || '').toLowerCase();
-        if (label.includes('sarah') || action.targetId === 7) {
-          this.simScreen = MOCK_APPS.WHATSAPP_CHAT_CONVERSATION;
-        } else if (label.includes('latte') || label.includes('coffee')) {
-          this.simScreen = MOCK_APPS.UBER_EATS_PRODUCT;
-        } else if (label.includes('battery')) {
-          this.simScreen = MOCK_APPS.SETTINGS_BATTERY;
-        }
+        if (label.includes('sarah') || action.targetId === 7) this.simScreen = MOCK_APPS.WHATSAPP_CHAT_CONVERSATION;
+        else if (label.includes('latte') || label.includes('coffee')) this.simScreen = MOCK_APPS.UBER_EATS_PRODUCT;
+        else if (label.includes('battery')) this.simScreen = MOCK_APPS.SETTINGS_BATTERY;
       } else if (action.type === 'type') {
         this.activeConversationText = action.payload;
       }
@@ -92,67 +86,113 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const deviceEnv = new DeviceEnvironment();
 
-  // 3. DOM References
-  const chatScrollContainer = document.getElementById('chatScrollContainer');
-  const messagesList = document.getElementById('messagesList');
-  const welcomeContainer = document.getElementById('welcomeContainer');
-  const promptForm = document.getElementById('promptForm');
-  const promptInput = document.getElementById('promptInput');
-  const sendBtn = document.getElementById('sendBtn');
-  const activeStatusBar = document.getElementById('activeStatusBar');
-  const agentStateText = document.getElementById('agentStateText');
-  const currentStepText = document.getElementById('currentStepText');
-  const floatingAbortBtn = document.getElementById('floatingAbortBtn');
-  const permissionBanner = document.getElementById('permissionBanner');
-  const permissionTitle = document.getElementById('permissionTitle');
-  const permissionDesc = document.getElementById('permissionDesc');
-  const fixPermissionBtn = document.getElementById('fixPermissionBtn');
-  const modelDropdownBtn = document.getElementById('modelDropdownBtn');
-  const currentModelLabel = document.getElementById('currentModelLabel');
-  const modelSheetModal = document.getElementById('modelSheetModal');
-  const closeModelSheetBtn = document.getElementById('closeModelSheetBtn');
-  const saveModelSheetBtn = document.getElementById('saveModelSheetBtn');
+  // 3. UI Element References
+  const openDrawerBtn = document.getElementById('openDrawerBtn');
+  const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+  const sideDrawer = document.getElementById('sideDrawer');
+  const drawerBackdrop = document.getElementById('drawerBackdrop');
+  const topNewChatBtn = document.getElementById('topNewChatBtn');
+  const drawerNewChatBtn = document.getElementById('drawerNewChatBtn');
+  const homePromptSection = document.getElementById('homePromptSection');
+  const messageStream = document.getElementById('messageStream');
+  const chatViewport = document.getElementById('chatViewport');
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+  const sendActionBtn = document.getElementById('sendActionBtn');
+  const executionStatusBar = document.getElementById('executionStatusBar');
+  const agentStateLabel = document.getElementById('agentStateLabel');
+  const stepCounterLabel = document.getElementById('stepCounterLabel');
+  const stopExecutionBtn = document.getElementById('stopExecutionBtn');
+  const drawerA11yBtn = document.getElementById('drawerA11yBtn');
+  const drawerA11yBadge = document.getElementById('drawerA11yBadge');
+  const drawerOverlayBtn = document.getElementById('drawerOverlayBtn');
+  const drawerOverlayBadge = document.getElementById('drawerOverlayBadge');
+  const drawerModelBtn = document.getElementById('drawerModelBtn');
+  const activeModelShortLabel = document.getElementById('activeModelShortLabel');
+  const modelModal = document.getElementById('modelModal');
+  const closeModelModalBtn = document.getElementById('closeModelModalBtn');
+  const doneModelModalBtn = document.getElementById('doneModelModalBtn');
   const safetyModal = document.getElementById('safetyModal');
-  const safetyRiskBadge = document.getElementById('safetyRiskBadge');
-  const safetyModalReason = document.getElementById('safetyModalReason');
-  const safetyModalTarget = document.getElementById('safetyModalTarget');
-  const safetyApproveBtn = document.getElementById('safetyApproveBtn');
-  const safetyDenyBtn = document.getElementById('safetyDenyBtn');
+  const safetyReasonText = document.getElementById('safetyReasonText');
+  const safetyTargetText = document.getElementById('safetyTargetText');
+  const safetyBlockBtn = document.getElementById('safetyBlockBtn');
+  const safetyAllowBtn = document.getElementById('safetyAllowBtn');
 
   let activeSafetyApprovalKey = null;
 
-  // 4. Permission Banner Manager (Android Native)
-  function checkAndRenderPermissions() {
+  // 4. Side Drawer Controller
+  function openDrawer() {
+    sideDrawer.classList.remove('-translate-x-full');
+    drawerBackdrop.classList.remove('hidden');
+    updateDrawerPermissions();
+  }
+
+  function closeDrawer() {
+    sideDrawer.classList.add('-translate-x-full');
+    drawerBackdrop.classList.add('hidden');
+  }
+
+  openDrawerBtn.addEventListener('click', openDrawer);
+  closeDrawerBtn.addEventListener('click', closeDrawer);
+  drawerBackdrop.addEventListener('click', closeDrawer);
+
+  // 5. Drawer Permission Hooks
+  function updateDrawerPermissions() {
     if (!isAndroidNative) return;
+    const a11y = window.AndroidBridge.isAccessibilityEnabled();
+    const overlay = window.AndroidBridge.isOverlayEnabled();
 
-    const hasA11y = window.AndroidBridge.isAccessibilityEnabled();
-    const hasOverlay = window.AndroidBridge.isOverlayEnabled();
-
-    if (!hasA11y) {
-      permissionBanner.classList.remove('hidden');
-      permissionTitle.textContent = 'Accessibility Access Needed';
-      permissionDesc.textContent = 'Enable NovaClaw in Settings to let the agent navigate apps.';
-      fixPermissionBtn.textContent = 'Enable';
-      fixPermissionBtn.onclick = () => window.AndroidBridge.openAccessibilitySettings();
-    } else if (!hasOverlay) {
-      permissionBanner.classList.remove('hidden');
-      permissionTitle.textContent = 'Floating Pill Permission';
-      permissionDesc.textContent = 'Allow display over apps for the instant 0ms kill-switch.';
-      fixPermissionBtn.textContent = 'Grant';
-      fixPermissionBtn.onclick = () => window.AndroidBridge.openOverlaySettings();
+    if (a11y) {
+      drawerA11yBadge.textContent = 'Active';
+      drawerA11yBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
     } else {
-      permissionBanner.classList.add('hidden');
+      drawerA11yBadge.textContent = 'Enable';
+      drawerA11yBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-700/60 animate-pulse';
+    }
+
+    if (overlay) {
+      drawerOverlayBadge.textContent = 'Active';
+      drawerOverlayBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
+    } else {
+      drawerOverlayBadge.textContent = 'Grant';
+      drawerOverlayBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400';
     }
   }
 
-  // Global hook called by Android onResume
-  window.updatePermissionStatus = (isA11y, isOverlay) => {
-    checkAndRenderPermissions();
+  drawerA11yBtn.addEventListener('click', () => {
+    if (isAndroidNative) {
+      window.AndroidBridge.openAccessibilitySettings();
+    } else {
+      alert('Running in browser simulation mode. On Android, this opens system Accessibility Settings.');
+    }
+  });
+
+  drawerOverlayBtn.addEventListener('click', () => {
+    if (isAndroidNative) {
+      window.AndroidBridge.openOverlaySettings();
+    }
+  });
+
+  // Global callback from Android onResume
+  window.updatePermissionStatus = () => {
+    updateDrawerPermissions();
   };
 
-  checkAndRenderPermissions();
+  updateDrawerPermissions();
 
-  // 5. Agent Loop Setup
+  // 6. Reset to New Chat
+  function resetToNewChat() {
+    agent.stop();
+    messageStream.innerHTML = '';
+    homePromptSection.classList.remove('hidden');
+    executionStatusBar.classList.add('hidden');
+    closeDrawer();
+  }
+
+  topNewChatBtn.addEventListener('click', resetToNewChat);
+  drawerNewChatBtn.addEventListener('click', resetToNewChat);
+
+  // 7. Agent Loop Instance
   const agent = new AgentLoop({
     pruner,
     safetyShield,
@@ -162,139 +202,121 @@ document.addEventListener('DOMContentLoaded', () => {
     maxSteps: 15,
 
     onStateChange: (state) => {
-      if (agentStateText) agentStateText.textContent = state;
+      if (agentStateLabel) agentStateLabel.textContent = state;
     },
 
     onStep: (data) => {
-      activeStatusBar.classList.remove('hidden');
-      if (currentStepText) currentStepText.textContent = `Step ${data.stepIndex}/15`;
+      executionStatusBar.classList.remove('hidden');
+      if (stepCounterLabel) stepCounterLabel.textContent = `Step ${data.stepIndex}/15`;
     },
 
     onThought: (data) => {
-      appendThoughtCard(data.stepIndex, data.thought, data.plan);
+      appendThoughtToStream(data.stepIndex, data.thought, data.plan);
     },
 
     onAction: (data) => {
-      appendActionCard(data.stepIndex, data.action);
+      appendActionToStream(data.stepIndex, data.action);
     },
 
     onVerification: (data) => {
-      appendVerificationCard(data.stepIndex, data.verification, data.preHash, data.postHash);
+      appendVerificationToStream(data.stepIndex, data.verification, data.preHash, data.postHash);
     },
 
     onSafetyPrompt: (promptData) => {
       activeSafetyApprovalKey = promptData.safetyResult.approvalKey;
-      safetyRiskBadge.textContent = `Risk Level: ${promptData.safetyResult.riskLevel}`;
-      safetyModalReason.textContent = promptData.safetyResult.reason;
-      safetyModalTarget.textContent = promptData.safetyResult.promptText;
+      safetyReasonText.textContent = promptData.safetyResult.reason;
+      safetyTargetText.textContent = promptData.safetyResult.promptText;
       safetyModal.classList.remove('hidden');
     },
 
     onComplete: (res) => {
-      activeStatusBar.classList.add('hidden');
-      sendBtn.disabled = false;
-      appendCompletionCard(res);
+      executionStatusBar.classList.add('hidden');
+      appendCompletionToStream(res);
     },
 
     onError: (err) => {
-      activeStatusBar.classList.add('hidden');
-      sendBtn.disabled = false;
-      appendErrorCard(err);
+      executionStatusBar.classList.add('hidden');
+      appendErrorToStream(err);
     }
   });
 
-  // 6. Chat Message Rendering (ChatGPT Mobile Style)
-  let currentStepContainer = null;
+  // 8. Stream Rendering Helpers (ChatGPT Mobile Style)
+  let activeAssistantContainer = null;
 
   function addUserMessage(text) {
-    if (welcomeContainer) welcomeContainer.classList.add('hidden');
+    homePromptSection.classList.add('hidden');
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'flex justify-end';
-    wrapper.innerHTML = `
-      <div class="max-w-[85%] bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-2xl rounded-tr-sm shadow-sm leading-relaxed">
+    const row = document.createElement('div');
+    row.className = 'flex justify-end my-2';
+    row.innerHTML = `
+      <div class="user-bubble">
         ${escapeHtml(text)}
       </div>
     `;
-    messagesList.appendChild(wrapper);
+    messageStream.appendChild(row);
     scrollToBottom();
 
-    // Create assistant message container
-    createAssistantMessage();
+    // Create assistant response slot
+    createAssistantSlot();
   }
 
-  function createAssistantMessage() {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-start gap-2.5';
-    wrapper.innerHTML = `
-      <div class="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm mt-0.5">
-        ✦
-      </div>
-      <div class="flex-1 space-y-2 min-w-0 assistant-body">
-      </div>
-    `;
-    messagesList.appendChild(wrapper);
-    currentStepContainer = wrapper.querySelector('.assistant-body');
+  function createAssistantSlot() {
+    const row = document.createElement('div');
+    row.className = 'flex flex-col gap-2 my-2 assistant-bubble';
+    row.innerHTML = `<div class="assistant-content space-y-2"></div>`;
+    messageStream.appendChild(row);
+    activeAssistantContainer = row.querySelector('.assistant-content');
     scrollToBottom();
   }
 
-  function appendThoughtCard(stepIndex, thoughtText, plan) {
-    if (!currentStepContainer) createAssistantMessage();
+  function appendThoughtToStream(stepIndex, thoughtText, plan) {
+    if (!activeAssistantContainer) createAssistantSlot();
 
-    const card = document.createElement('div');
-    card.id = `step-card-${stepIndex}`;
-    card.className = 'p-3 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2 text-xs';
+    const block = document.createElement('div');
+    block.id = `turn-step-${stepIndex}`;
+    block.className = 'space-y-1 text-xs';
 
-    card.innerHTML = `
-      <div class="flex items-center justify-between font-bold text-slate-800 text-[11px]">
-        <div class="flex items-center gap-1.5">
-          <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px]">
-            ${stepIndex}
-          </span>
-          <span>Tactical Step</span>
+    block.innerHTML = `
+      <!-- Collapsible Thought Pill (ChatGPT Style) -->
+      <div>
+        <div class="thought-pill" onclick="this.nextElementSibling.classList.toggle('hidden')">
+          <span>💭 Step ${stepIndex} Reasoning</span>
+          <span class="text-[9px]">▾</span>
         </div>
-        <span class="text-[10px] text-slate-400 font-mono">Gemma 4 • LiteRT</span>
+        <div class="thought-drawer hidden">
+          ${escapeHtml(thoughtText)}
+        </div>
       </div>
-
-      <!-- Collapsible Thought Accordion -->
-      <div class="thought-toggle" onclick="this.nextElementSibling.classList.toggle('hidden')">
-        <span class="font-semibold flex items-center gap-1">💭 Reasoning & Plan</span>
-        <span class="text-[10px]">▾</span>
-      </div>
-      <div class="thought-content">
-        ${escapeHtml(thoughtText)}
-      </div>
-
-      <div class="action-slot pt-1"></div>
-      <div class="verify-slot"></div>
+      <div class="action-row pt-0.5"></div>
+      <div class="verify-row"></div>
     `;
 
-    currentStepContainer.appendChild(card);
+    activeAssistantContainer.appendChild(block);
     scrollToBottom();
   }
 
-  function appendActionCard(stepIndex, action) {
-    const card = document.getElementById(`step-card-${stepIndex}`);
-    if (!card) return;
+  function appendActionToStream(stepIndex, action) {
+    const block = document.getElementById(`turn-step-${stepIndex}`);
+    if (!block) return;
 
-    const slot = card.querySelector('.action-slot');
-    let chipClass = 'step-chip-click';
+    const row = block.querySelector('.action-row');
+    let tagClass = 'action-tag-click';
     let icon = '👆';
 
     if (action.type === 'type') {
-      chipClass = 'step-chip-type';
+      tagClass = 'action-tag-type';
       icon = '⌨️';
     } else if (action.type === 'launch_app') {
-      chipClass = 'step-chip-launch';
+      tagClass = 'action-tag-launch';
       icon = '🚀';
     }
 
-    slot.innerHTML = `
-      <div class="flex items-center gap-2 text-xs">
-        <span class="step-chip ${chipClass}">
+    row.innerHTML = `
+      <div class="flex items-center gap-2 text-xs text-slate-300">
+        <span class="action-tag ${tagClass}">
           ${icon} ${action.type}
         </span>
-        <span class="font-medium text-slate-700 truncate">
+        <span class="truncate">
           ${action.targetId ? `Mark [${action.targetId}]` : ''} 
           ${action.label ? `"${action.label}"` : (action.payload || '')}
         </span>
@@ -303,56 +325,50 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollToBottom();
   }
 
-  function appendVerificationCard(stepIndex, ver, preHash, postHash) {
-    const card = document.getElementById(`step-card-${stepIndex}`);
-    if (!card) return;
+  function appendVerificationToStream(stepIndex, ver, preHash, postHash) {
+    const block = document.getElementById(`turn-step-${stepIndex}`);
+    if (!block) return;
 
-    const slot = card.querySelector('.verify-slot');
-    slot.innerHTML = `
-      <div class="mt-1 pt-1 border-t border-slate-100 flex items-start gap-1.5 text-[11px] ${ver.success ? 'text-emerald-700' : 'text-amber-700'}">
+    const row = block.querySelector('.verify-row');
+    row.innerHTML = `
+      <div class="text-[11px] ${ver.success ? 'text-emerald-400' : 'text-amber-400'} flex items-center gap-1.5 pl-1">
         <span>${ver.success ? '✓' : '⚠️'}</span>
-        <div class="flex-1 leading-snug">
-          <span class="font-semibold">${ver.message}</span>
-          <span class="text-[10px] text-slate-400 font-mono block">Diff: ${preHash} → ${postHash}</span>
+        <span>${ver.message}</span>
+      </div>
+    `;
+    scrollToBottom();
+  }
+
+  function appendCompletionToStream(res) {
+    if (!activeAssistantContainer) return;
+
+    const summary = document.createElement('div');
+    summary.className = 'pt-2 text-xs text-slate-200 leading-relaxed';
+    summary.innerHTML = `
+      <div class="p-3 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E]">
+        <div class="font-bold text-white flex items-center gap-1.5 mb-1">
+          <span>✨</span> Done
         </div>
+        <p class="text-slate-300 text-xs">${res.summary}</p>
       </div>
     `;
+    activeAssistantContainer.appendChild(summary);
     scrollToBottom();
   }
 
-  function appendCompletionCard(res) {
-    if (!currentStepContainer) return;
+  function appendErrorToStream(err) {
+    if (!activeAssistantContainer) return;
 
-    const card = document.createElement('div');
-    card.className = 'p-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 shadow-sm';
-    card.innerHTML = `
-      <div class="font-bold flex items-center gap-1.5 mb-1">
-        <span>🎉</span> Task Completed Successfully
-      </div>
-      <p class="text-[11px] text-emerald-800 leading-relaxed">${res.summary}</p>
-    `;
-    currentStepContainer.appendChild(card);
-    scrollToBottom();
-  }
-
-  function appendErrorCard(err) {
-    if (!currentStepContainer) return;
-
-    const card = document.createElement('div');
-    card.className = 'p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 shadow-sm';
-    card.innerHTML = `
-      <div class="font-bold flex items-center gap-1.5 mb-0.5">
-        <span>🛑</span> Execution Paused
-      </div>
-      <p class="text-[11px]">${err}</p>
-    `;
-    currentStepContainer.appendChild(card);
+    const errBox = document.createElement('div');
+    errBox.className = 'p-3 rounded-2xl bg-rose-950/40 border border-rose-800 text-xs text-rose-300';
+    errBox.innerHTML = `<strong>Halted:</strong> ${err}`;
+    activeAssistantContainer.appendChild(errBox);
     scrollToBottom();
   }
 
   function scrollToBottom() {
-    if (chatScrollContainer) {
-      chatScrollContainer.scrollTop = chatScrollContainer.scrollHeight;
+    if (chatViewport) {
+      chatViewport.scrollTop = chatViewport.scrollHeight;
     }
   }
 
@@ -364,48 +380,42 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/"/g, '&quot;');
   }
 
-  // 7. Event Listeners
-  promptForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = promptInput.value.trim();
+  // 9. Input & Preset Handlers
+  function handleUserPrompt(text) {
     if (!text) return;
 
-    // Check permissions on native device before starting
     if (isAndroidNative && !window.AndroidBridge.isAccessibilityEnabled()) {
       window.AndroidBridge.showToast('Please enable Accessibility Service first!');
-      window.AndroidBridge.openAccessibilitySettings();
+      openDrawer();
       return;
     }
 
     addUserMessage(text);
-    promptInput.value = '';
-    sendBtn.disabled = true;
     agent.start(text);
+  }
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = '';
+    handleUserPrompt(text);
   });
 
-  // Preset quick prompt chips
-  document.querySelectorAll('.preset-pill').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const text = btn.getAttribute('data-prompt');
-      if (text) {
-        if (isAndroidNative && !window.AndroidBridge.isAccessibilityEnabled()) {
-          window.AndroidBridge.showToast('Please enable Accessibility Service first!');
-          window.AndroidBridge.openAccessibilitySettings();
-          return;
-        }
-        addUserMessage(text);
-        sendBtn.disabled = true;
-        agent.start(text);
-      }
+  // Suggestion rows
+  document.querySelectorAll('.chatgpt-suggestion-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const text = row.getAttribute('data-prompt');
+      handleUserPrompt(text);
     });
   });
 
-  floatingAbortBtn.addEventListener('click', () => {
+  stopExecutionBtn.addEventListener('click', () => {
     agent.stop();
   });
 
-  // Safety Confirmation Handlers
-  safetyApproveBtn.addEventListener('click', () => {
+  // Safety Confirmation
+  safetyAllowBtn.addEventListener('click', () => {
     safetyModal.classList.add('hidden');
     if (activeSafetyApprovalKey) {
       agent.resumeAfterSafetyApproval(activeSafetyApprovalKey);
@@ -413,32 +423,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  safetyDenyBtn.addEventListener('click', () => {
+  safetyBlockBtn.addEventListener('click', () => {
     safetyModal.classList.add('hidden');
     agent.stop();
     activeSafetyApprovalKey = null;
-    appendErrorCard('User denied authorization for sensitive action.');
+    appendErrorToStream('Blocked by user.');
   });
 
-  // Model Sheet Modal
-  modelDropdownBtn.addEventListener('click', () => modelSheetModal.classList.remove('hidden'));
-  closeModelSheetBtn.addEventListener('click', () => modelSheetModal.classList.add('hidden'));
-  saveModelSheetBtn.addEventListener('click', () => modelSheetModal.classList.add('hidden'));
+  // Model Modal
+  drawerModelBtn.addEventListener('click', () => {
+    closeDrawer();
+    modelModal.classList.remove('hidden');
+  });
 
-  document.querySelectorAll('.model-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      document.querySelectorAll('.model-option').forEach(o => {
-        o.className = 'model-option p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between cursor-pointer';
-        const span = o.querySelector('span:last-child');
-        if (span) span.textContent = 'Select';
+  closeModelModalBtn.addEventListener('click', () => modelModal.classList.add('hidden'));
+  doneModelModalBtn.addEventListener('click', () => modelModal.classList.add('hidden'));
+
+  document.querySelectorAll('.model-choice').forEach(choice => {
+    choice.addEventListener('click', () => {
+      document.querySelectorAll('.model-choice').forEach(c => {
+        c.className = 'model-choice p-3 rounded-2xl bg-[#262626] border border-transparent hover:border-slate-600 cursor-pointer flex justify-between items-center';
+        c.querySelector('span:last-child').textContent = 'Select';
       });
-      opt.className = 'model-option p-3 rounded-2xl border border-purple-500 bg-purple-50/50 flex items-center justify-between cursor-pointer';
-      const check = opt.querySelector('span:last-child');
-      if (check) check.textContent = '✓';
+      choice.className = 'model-choice p-3 rounded-2xl bg-[#2C2C2E] border border-purple-500/80 cursor-pointer flex justify-between items-center';
+      choice.querySelector('span:last-child').textContent = '✓';
 
-      const modelId = opt.getAttribute('data-model');
+      const modelId = choice.getAttribute('data-id');
       const selected = modelEngine.setModel(modelId);
-      currentModelLabel.textContent = selected.name.split(' (')[0];
+      activeModelShortLabel.textContent = selected.name.split(' (')[0];
     });
   });
 });

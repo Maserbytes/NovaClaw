@@ -3,216 +3,278 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>NovaClaw — Mobile AI Agent</title>
+  <title>NovaClaw</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#F8FAFC',
-              500: '#7C3AED',
-              600: '#6D28D9',
-              900: '#0F172A'
-            }
-          }
-        }
-      }
-    }
-  </script>
 </head>
-<body class="bg-[#F8F9FA] text-slate-800 antialiased min-h-screen flex flex-col overflow-x-hidden selection:bg-purple-100">
+<body class="bg-[#0D0D0D] text-[#ECECEC] antialiased min-h-screen flex flex-col overflow-x-hidden selection:bg-purple-900">
 
-  <!-- Mobile Top App Bar (Clean, Minimalist, ChatGPT-Style) -->
-  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-4 py-3 flex items-center justify-between">
-    <!-- Model Selector Pill (Tap to open model sheet) -->
-    <button id="modelDropdownBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 transition-all text-xs font-semibold text-slate-800">
-      <span class="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
-      <span id="currentModelLabel">Gemma 4 (2B INT4)</span>
-      <span class="text-[10px] text-slate-400">▼</span>
-    </button>
+  <!-- ======================================================== -->
+  <!-- SIDE DRAWER OVERLAY & MENU (ChatGPT Style)               -->
+  <!-- ======================================================== -->
+  <div id="drawerBackdrop" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden transition-opacity duration-300"></div>
 
-    <!-- Right Controls: Status Pill & Settings -->
-    <div class="flex items-center gap-2">
-      <button id="safetyBadgeBtn" class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold flex items-center gap-1.5">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-        <span>Shield Active</span>
-      </button>
-
-      <button id="settingsBtn" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all text-xs" title="Device & Model Settings">
-        ⚙️
+  <aside id="sideDrawer" class="fixed top-0 left-0 bottom-0 z-50 w-[290px] max-w-[85vw] bg-[#171717] border-r border-[#262626] flex flex-col -translate-x-full transition-transform duration-300 ease-out shadow-2xl">
+    
+    <!-- Drawer Header -->
+    <div class="p-4 pt-5 pb-3 flex items-center justify-between border-b border-[#262626]/80">
+      <div class="flex items-center gap-2">
+        <span class="text-lg font-bold text-white tracking-tight">NovaClaw</span>
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/50">Gemma 4</span>
+      </div>
+      <button id="closeDrawerBtn" class="w-8 h-8 rounded-full bg-[#262626] hover:bg-[#333333] text-slate-300 flex items-center justify-center text-sm transition-all">
+        ✕
       </button>
     </div>
+
+    <!-- Drawer Navigation List -->
+    <div class="flex-1 overflow-y-auto p-3 space-y-1 text-sm font-medium">
+      
+      <!-- Accessibility Service Status & Action -->
+      <button id="drawerA11yBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">📱</span>
+          <span>Accessibility Service</span>
+        </div>
+        <span id="drawerA11yBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-700/60">
+          Setup
+        </span>
+      </button>
+
+      <!-- Floating Kill-Switch Pill Status & Action -->
+      <button id="drawerOverlayBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">🪟</span>
+          <span>Floating Kill-Switch</span>
+        </div>
+        <span id="drawerOverlayBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+          Overlay
+        </span>
+      </button>
+
+      <!-- Model Hub -->
+      <button id="drawerModelBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">⚡</span>
+          <span>Model Hub</span>
+        </div>
+        <span class="text-[10px] text-slate-400 font-mono" id="activeModelShortLabel">Gemma 4</span>
+      </button>
+
+      <!-- Safety Shield -->
+      <button id="drawerSafetyBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">🛡️</span>
+          <span>Quad-Shield Safety</span>
+        </div>
+        <span class="text-[10px] text-emerald-400 font-semibold">Active</span>
+      </button>
+
+      <div class="pt-3 pb-1">
+        <hr class="border-[#262626]">
+      </div>
+
+      <!-- Recent Tasks Header -->
+      <div class="px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        Recent Tasks
+      </div>
+
+      <!-- Recent Task Items -->
+      <div id="recentTasksList" class="space-y-0.5">
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block">
+          💬 WhatsApp: Message Sarah
+        </button>
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block">
+          ☕ Uber Eats: Iced Latte Order
+        </button>
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block">
+          🔋 Settings: Battery Saver
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Drawer Footer (ChatGPT Style) -->
+    <div class="p-3 border-t border-[#262626] flex items-center justify-between gap-2">
+      <button id="drawerNewChatBtn" class="flex-1 py-2 px-3 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all">
+        <span>✎</span>
+        <span>New chat</span>
+      </button>
+
+      <div class="w-9 h-9 rounded-full bg-[#262626] border border-[#333333] text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
+        MB
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ======================================================== -->
+  <!-- MAIN SCREEN HEADER (Clean, 2 Icon Buttons like ChatGPT)  -->
+  <!-- ======================================================== -->
+  <header class="sticky top-0 z-20 px-4 py-3 flex items-center justify-between bg-[#0D0D0D]">
+    <!-- Left Hamburger Menu Button (Circle) -->
+    <button id="openDrawerBtn" class="w-10 h-10 rounded-full bg-[#212121] hover:bg-[#2A2A2A] text-white flex items-center justify-center transition-all shadow-sm">
+      <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <!-- Center Tiny Status Pill -->
+    <div id="topStatusIndicator" class="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 opacity-80">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+      <span id="headerStatusText">NovaClaw Ready</span>
+    </div>
+
+    <!-- Right Compose / New Chat Button (Circle) -->
+    <button id="topNewChatBtn" class="w-10 h-10 rounded-full bg-[#212121] hover:bg-[#2A2A2A] text-white flex items-center justify-center transition-all shadow-sm" title="New Chat">
+      <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+    </button>
   </header>
 
-  <!-- Permission Alert Banner (Visible only if Accessibility or Overlay is missing) -->
-  <div id="permissionBanner" class="hidden bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/80 px-4 py-2.5 text-xs text-amber-900 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <span class="text-base">⚠️</span>
-      <div>
-        <p class="font-bold leading-tight" id="permissionTitle">Accessibility Access Required</p>
-        <p class="text-[11px] text-amber-700" id="permissionDesc">Enable NovaClaw to safely control your screen.</p>
-      </div>
-    </div>
-    <button id="fixPermissionBtn" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-[11px] shadow-sm shrink-0">
-      Enable
-    </button>
-  </div>
-
-  <!-- Main Chat Conversation Feed (Full Mobile Screen, No Fake Chassis) -->
-  <main id="chatScrollContainer" class="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-w-2xl mx-auto w-full">
+  <!-- ======================================================== -->
+  <!-- CHAT CONVERSATION VIEWPORT                               -->
+  <!-- ======================================================== -->
+  <main id="chatViewport" class="flex-1 overflow-y-auto px-4 py-2 flex flex-col justify-end max-w-xl mx-auto w-full">
     
-    <!-- Welcome Greeting & Quick Prompts -->
-    <div id="welcomeContainer" class="text-center py-6">
-      <div class="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-xl shadow-lg shadow-purple-600/20 mb-3">
-        ✦
-      </div>
-      <h2 class="text-lg font-bold text-slate-900 tracking-tight">How can I help you today?</h2>
-      <p class="text-xs text-slate-500 max-w-xs mx-auto mt-1 mb-6">
-        Autonomous on-device mobile operator running Google Gemma 4 locally.
-      </p>
+    <!-- Home Empty State: "Where should we start?" (Exact ChatGPT style) -->
+    <div id="homePromptSection" class="pb-6 pt-12 text-left space-y-6">
+      <h1 class="text-2xl sm:text-3xl font-normal text-white tracking-tight">
+        Where should we start?
+      </h1>
 
-      <!-- Quick Action Cards (Clean, Whitish, Tap-friendly) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
-        <button class="preset-pill p-3 rounded-2xl bg-white hover:bg-purple-50/50 border border-slate-200/90 shadow-sm transition-all flex items-start gap-2.5 text-left group" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
-          <span class="text-base mt-0.5">💬</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold text-slate-800 group-hover:text-purple-700">WhatsApp Message</div>
-            <div class="text-[11px] text-slate-500 truncate">"Message Sarah: Let's meet at 5"</div>
-          </div>
+      <div class="space-y-4">
+        <!-- Suggestion 1 -->
+        <button class="chatgpt-suggestion-row group" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
+          <span class="text-xl">💬</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Send message to Sarah on WhatsApp</span>
         </button>
 
-        <button class="preset-pill p-3 rounded-2xl bg-white hover:bg-purple-50/50 border border-slate-200/90 shadow-sm transition-all flex items-start gap-2.5 text-left group" data-prompt="Open Uber Eats and search for iced latte">
-          <span class="text-base mt-0.5">☕</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold text-slate-800 group-hover:text-purple-700">Uber Eats Order</div>
-            <div class="text-[11px] text-slate-500 truncate">"Find Iced Latte and add to cart"</div>
-          </div>
+        <!-- Suggestion 2 -->
+        <button class="chatgpt-suggestion-row group" data-prompt="Open Uber Eats and search for iced latte">
+          <span class="text-xl">☕</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Order iced latte on Uber Eats</span>
         </button>
 
-        <button class="preset-pill p-3 rounded-2xl bg-white hover:bg-purple-50/50 border border-slate-200/90 shadow-sm transition-all flex items-start gap-2.5 text-left group" data-prompt="Open Settings and turn on Battery Saver">
-          <span class="text-base mt-0.5">🔋</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold text-slate-800 group-hover:text-purple-700">Battery Saver</div>
-            <div class="text-[11px] text-slate-500 truncate">"Turn on Battery Saver in Settings"</div>
-          </div>
+        <!-- Suggestion 3 -->
+        <button class="chatgpt-suggestion-row group" data-prompt="Open Settings and turn on Battery Saver">
+          <span class="text-xl">🔋</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Turn on Battery Saver in Settings</span>
         </button>
 
-        <button class="preset-pill p-3 rounded-2xl bg-white hover:bg-rose-50/50 border border-slate-200/90 shadow-sm transition-all flex items-start gap-2.5 text-left group" data-prompt="Open Bank Wallet and delete all bank accounts">
-          <span class="text-base mt-0.5">🛡️</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold text-rose-700">Test Safety Shield</div>
-            <div class="text-[11px] text-slate-500 truncate">"Wipe Bank Account" (Destructive test)</div>
-          </div>
+        <!-- Suggestion 4 -->
+        <button class="chatgpt-suggestion-row group" data-prompt="Open Bank Wallet and delete all bank accounts">
+          <span class="text-xl">🛡️</span>
+          <span class="text-sm text-rose-400 group-hover:text-rose-300">Test Quad-Shield Safety Interceptor</span>
         </button>
       </div>
     </div>
 
-    <!-- Live Execution & Chat Messages -->
-    <div id="messagesList" class="space-y-4"></div>
+    <!-- Active Message Stream (Appears once conversation starts) -->
+    <div id="messageStream" class="space-y-4 w-full"></div>
 
   </main>
 
-  <!-- Live Execution Status Bar (Displays while agent is active) -->
-  <div id="activeStatusBar" class="hidden px-4 py-2 bg-purple-50/90 backdrop-blur border-t border-purple-100 flex items-center justify-between text-xs text-purple-900 max-w-2xl mx-auto w-full">
+  <!-- Execution Progress Subtitle (Appears during automated actions) -->
+  <div id="executionStatusBar" class="hidden px-4 py-2 bg-[#1A1A1A] border-t border-[#262626] text-xs text-slate-300 flex items-center justify-between max-w-xl mx-auto w-full">
     <div class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-purple-600 animate-ping"></span>
-      <span id="agentStateText" class="font-bold">Analyzing screen...</span>
+      <span class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+      <span id="agentStateLabel">Thinking...</span>
     </div>
     <div class="flex items-center gap-2">
-      <span id="currentStepText" class="text-[11px] text-purple-700 font-mono">Step 1/15</span>
-      <button id="floatingAbortBtn" class="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-[10px] font-bold shadow-sm">
+      <span id="stepCounterLabel" class="text-slate-400 font-mono text-[11px]">Step 1/15</span>
+      <button id="stopExecutionBtn" class="px-2.5 py-0.5 rounded bg-rose-600/80 hover:bg-rose-600 text-white text-[10px] font-bold">
         Stop
       </button>
     </div>
   </div>
 
-  <!-- Bottom Floating Input Bar (ChatGPT Mobile Style) -->
-  <footer class="sticky bottom-0 z-30 p-3 bg-gradient-to-t from-white via-white/95 to-white/60 backdrop-blur-lg">
-    <div class="max-w-2xl mx-auto">
-      <form id="promptForm" class="flex items-center gap-2 p-1.5 pl-3 rounded-full bg-slate-100/90 border border-slate-200/90 shadow-sm focus-within:bg-white focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition-all">
+  <!-- ======================================================== -->
+  <!-- BOTTOM INPUT BAR (Exact ChatGPT Mobile Rounded Pill)     -->
+  <!-- ======================================================== -->
+  <footer class="p-3 pb-5 bg-[#0D0D0D]">
+    <div class="max-w-xl mx-auto">
+      <form id="chatForm" class="flex items-center gap-2 bg-[#212121] rounded-full px-3.5 py-1.5 shadow-lg border border-[#2E2E2E] focus-within:border-slate-500 transition-all">
         
+        <!-- Plus / Action Icon -->
+        <button type="button" id="inputPlusBtn" class="text-slate-400 hover:text-white text-lg font-light shrink-0 px-1">
+          +
+        </button>
+
+        <!-- Text Input -->
         <input 
           type="text" 
-          id="promptInput" 
-          placeholder="Ask NovaClaw to do anything on your phone..." 
-          class="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 focus:outline-none min-w-0"
+          id="chatInput" 
+          placeholder="Ask NovaClaw" 
+          class="flex-1 bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none min-w-0"
           autocomplete="off"
         />
 
-        <button type="submit" id="sendBtn" class="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
+        <!-- Right Side: Send / Waveform Icon (Blue Pill like ChatGPT) -->
+        <button type="submit" id="sendActionBtn" class="w-8 h-8 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center shrink-0 shadow-md transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
       </form>
     </div>
   </footer>
 
-  <!-- Model Selection Bottom Sheet / Modal -->
-  <div id="modelSheetModal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-200">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <h3 class="text-sm font-bold text-slate-900">On-Device Model Hub</h3>
-        <button id="closeModelSheetBtn" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+  <!-- ======================================================== -->
+  <!-- MODEL HUB MODAL (Clean Dark Modal)                      -->
+  <!-- ======================================================== -->
+  <div id="modelModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl max-w-sm w-full p-5 shadow-2xl text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-[#2C2C2E] mb-3">
+        <h3 class="text-sm font-bold text-white">Select On-Device Model</h3>
+        <button id="closeModelModalBtn" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <div class="space-y-2.5 my-4 overflow-y-auto pr-1 flex-1 text-xs">
-        <div class="model-option p-3 rounded-2xl border border-purple-500 bg-purple-50/50 flex items-center justify-between cursor-pointer" data-model="gemma-4-2b-it">
+      <div class="space-y-2 mb-4">
+        <div class="model-choice p-3 rounded-2xl bg-[#2C2C2E] border border-purple-500/80 cursor-pointer flex justify-between items-center" data-id="gemma-4-2b-it">
           <div>
-            <div class="font-bold text-slate-900 flex items-center gap-1.5">
-              <span>Google Gemma 4 (2B INT4)</span>
-              <span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-bold">Recommended</span>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-0.5">Google LiteRT-LM • 1.45 GB • Qualcomm NPU / CPU</p>
+            <div class="font-bold text-white">Google Gemma 4 (2B INT4)</div>
+            <div class="text-[11px] text-slate-400">Google LiteRT-LM • Qualcomm NPU</div>
           </div>
-          <span class="text-purple-600 font-bold text-sm">✓</span>
+          <span class="text-purple-400 font-bold">✓</span>
         </div>
 
-        <div class="model-option p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-model="llama-3.2-3b-mobile">
+        <div class="model-choice p-3 rounded-2xl bg-[#262626] border border-transparent hover:border-slate-600 cursor-pointer flex justify-between items-center" data-id="llama-3.2-3b-mobile">
           <div>
-            <div class="font-bold text-slate-800">Meta Llama 3.2 (3B Q4_K_M)</div>
-            <p class="text-[11px] text-slate-500 mt-0.5">llama.cpp GGUF • 2.02 GB • High Accuracy</p>
+            <div class="font-bold text-white">Meta Llama 3.2 (3B Q4_K_M)</div>
+            <div class="text-[11px] text-slate-400">llama.cpp GGUF • CPU NEON</div>
           </div>
-          <span class="text-slate-400 text-xs">Select</span>
+          <span class="text-slate-500 text-xs">Select</span>
         </div>
 
-        <div class="model-option p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-model="local-ollama">
+        <div class="model-choice p-3 rounded-2xl bg-[#262626] border border-transparent hover:border-slate-600 cursor-pointer flex justify-between items-center" data-id="local-ollama">
           <div>
-            <div class="font-bold text-slate-800">Local Termux / Ollama Bridge</div>
-            <p class="text-[11px] text-slate-500 mt-0.5">http://localhost:11434 • Hybrid Mode</p>
+            <div class="font-bold text-white">Local Termux / Ollama Bridge</div>
+            <div class="text-[11px] text-slate-400">http://localhost:11434</div>
           </div>
-          <span class="text-slate-400 text-xs">Select</span>
+          <span class="text-slate-500 text-xs">Select</span>
         </div>
       </div>
 
-      <button id="saveModelSheetBtn" class="w-full py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold shadow">
+      <button id="doneModelModalBtn" class="w-full py-2.5 bg-white text-black font-bold rounded-xl">
         Done
       </button>
     </div>
   </div>
 
-  <!-- Safety Authorization Modal (Human-in-the-Loop) -->
-  <div id="safetyModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-rose-100 animate-in zoom-in-95 duration-200">
-      <div class="flex items-center gap-2.5 mb-3">
-        <span class="text-2xl">🛡️</span>
-        <div>
-          <h4 class="text-sm font-bold text-slate-900">Safety Guard Interception</h4>
-          <span class="text-[10px] font-bold text-rose-600 uppercase" id="safetyRiskBadge">Risk Level: HIGH</span>
-        </div>
+  <!-- Safety Modal (Human-In-The-Loop) -->
+  <div id="safetyModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#1C1C1E] border border-rose-900/60 rounded-3xl max-w-sm w-full p-5 shadow-2xl text-xs animate-in zoom-in-95 duration-150">
+      <div class="flex items-center gap-2 mb-2 text-rose-400 font-bold text-sm">
+        <span>🛡️</span>
+        <span>Safety Shield Interception</span>
       </div>
-      <p class="text-xs text-slate-600 mb-3" id="safetyModalReason">
-        Dangerous operation detected. Confirmation required.
+      <p class="text-slate-300 text-xs mb-3" id="safetyReasonText">
+        Destructive operation detected.
       </p>
-      <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 mb-4" id="safetyModalTarget">
-        Target: Clear all storage
+      <div class="p-2.5 rounded-xl bg-black border border-[#2C2C2E] font-mono text-[11px] text-slate-400 mb-4" id="safetyTargetText">
+        Target: Wipe Bank Account
       </div>
       <div class="flex gap-2">
-        <button id="safetyDenyBtn" class="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">
+        <button id="safetyBlockBtn" class="flex-1 py-2 rounded-xl bg-[#2C2C2E] hover:bg-[#333333] text-white font-semibold">
           Block
         </button>
-        <button id="safetyApproveBtn" class="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700">
+        <button id="safetyAllowBtn" class="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold">
           Authorize Once
         </button>
       </div>
