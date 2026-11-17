@@ -20,7 +20,7 @@
     <div class="p-4 pt-5 pb-3 flex items-center justify-between border-b border-[#262626]/80">
       <div class="flex items-center gap-2">
         <span class="text-lg font-bold text-white tracking-tight">NovaClaw</span>
-        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/50">Gemma 4</span>
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/50" id="drawerModelPill">Gemma 4</span>
       </div>
       <button id="closeDrawerBtn" class="w-8 h-8 rounded-full bg-[#262626] hover:bg-[#333333] text-slate-300 flex items-center justify-center text-sm transition-all">
         ✕
@@ -41,6 +41,24 @@
         </span>
       </button>
 
+      <!-- App Info (For Android 14 Restricted Settings) -->
+      <button id="drawerAppInfoBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">⚙️</span>
+          <span>App Info (3-dots)</span>
+        </div>
+        <span class="text-[10px] text-slate-400">Settings</span>
+      </button>
+
+      <!-- Model Hub & Downloader -->
+      <button id="drawerModelBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-purple-400">⚡</span>
+          <span>Install Gemma 4 / Hub</span>
+        </div>
+        <span class="text-[10px] text-purple-400 font-mono font-bold" id="activeModelShortLabel">Install</span>
+      </button>
+
       <!-- Floating Kill-Switch Pill Status & Action -->
       <button id="drawerOverlayBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
         <div class="flex items-center gap-3">
@@ -50,15 +68,6 @@
         <span id="drawerOverlayBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
           Overlay
         </span>
-      </button>
-
-      <!-- Model Hub -->
-      <button id="drawerModelBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
-        <div class="flex items-center gap-3">
-          <span class="text-base text-slate-400 group-hover:text-white">⚡</span>
-          <span>Model Hub</span>
-        </div>
-        <span class="text-[10px] text-slate-400 font-mono" id="activeModelShortLabel">Gemma 4</span>
       </button>
 
       <!-- Safety Shield -->
@@ -76,19 +85,19 @@
 
       <!-- Recent Tasks Header -->
       <div class="px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-        Recent Tasks
+        Sample Tasks
       </div>
 
       <!-- Recent Task Items -->
       <div id="recentTasksList" class="space-y-0.5">
-        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block">
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open Settings and turn on Battery Saver">
+          🔋 Settings: Turn on Battery Saver
+        </button>
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
           💬 WhatsApp: Message Sarah
         </button>
-        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block">
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open Uber Eats and search for iced latte">
           ☕ Uber Eats: Iced Latte Order
-        </button>
-        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block">
-          🔋 Settings: Battery Saver
         </button>
       </div>
 
@@ -118,8 +127,8 @@
     </button>
 
     <!-- Center Tiny Status Pill -->
-    <div id="topStatusIndicator" class="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 opacity-80">
-      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+    <div id="topStatusIndicator" class="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 opacity-90 cursor-pointer">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" id="headerStatusDot"></span>
       <span id="headerStatusText">NovaClaw Ready</span>
     </div>
 
@@ -135,32 +144,76 @@
   <main id="chatViewport" class="flex-1 overflow-y-auto px-4 py-2 flex flex-col justify-end max-w-xl mx-auto w-full">
     
     <!-- Home Empty State: "Where should we start?" (Exact ChatGPT style) -->
-    <div id="homePromptSection" class="pb-6 pt-12 text-left space-y-6">
-      <h1 class="text-2xl sm:text-3xl font-normal text-white tracking-tight">
+    <div id="homePromptSection" class="pb-6 pt-6 text-left space-y-5">
+      
+      <!-- Setup & Permission Warning Banners -->
+      <div id="setupBannersContainer" class="space-y-3">
+        
+        <!-- Accessibility Alert Banner -->
+        <div id="setupAccessibilityBanner" class="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-800/60 text-xs text-amber-200 flex items-start justify-between gap-3 shadow-sm hidden">
+          <div class="space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-300">
+              <span>⚠️</span> Accessibility Required
+            </div>
+            <p class="text-[11px] text-amber-200/80 leading-relaxed">
+              NovaClaw needs Accessibility access to view your screen and tap buttons safely.
+            </p>
+            <div class="text-[10px] text-amber-300/80 pt-0.5">
+              💡 <em>On Android 14: If grayed out, open App Info → 3-dots → "Allow restricted settings" first.</em>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5 shrink-0">
+            <button id="setupA11yBtn" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl shadow transition-all">
+              Enable
+            </button>
+            <button id="openAppInfoBtn" class="px-2 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-800/60 text-amber-300 font-medium text-[10px] rounded-lg transition-all text-center">
+              App Info
+            </button>
+          </div>
+        </div>
+
+        <!-- Model Setup Banner -->
+        <div id="setupModelBanner" class="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 text-xs text-purple-200 flex items-start justify-between gap-3 shadow-sm">
+          <div class="space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-purple-300">
+              <span>⚡</span> Install Gemma 4 Model
+            </div>
+            <p class="text-[11px] text-purple-200/80 leading-relaxed">
+              No on-device AI model installed. Download Google Gemma 4 (LiteRT) to execute autonomous phone tasks locally.
+            </p>
+          </div>
+          <button id="setupModelBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shrink-0 shadow transition-all">
+            Install Model
+          </button>
+        </div>
+
+      </div>
+
+      <h1 class="text-2xl sm:text-3xl font-normal text-white tracking-tight pt-2">
         Where should we start?
       </h1>
 
-      <div class="space-y-4">
+      <div class="space-y-3">
         <!-- Suggestion 1 -->
-        <button class="chatgpt-suggestion-row group" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
-          <span class="text-xl">💬</span>
-          <span class="text-sm text-slate-300 group-hover:text-white">Send message to Sarah on WhatsApp</span>
-        </button>
-
-        <!-- Suggestion 2 -->
-        <button class="chatgpt-suggestion-row group" data-prompt="Open Uber Eats and search for iced latte">
-          <span class="text-xl">☕</span>
-          <span class="text-sm text-slate-300 group-hover:text-white">Order iced latte on Uber Eats</span>
-        </button>
-
-        <!-- Suggestion 3 -->
-        <button class="chatgpt-suggestion-row group" data-prompt="Open Settings and turn on Battery Saver">
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Settings and turn on Battery Saver">
           <span class="text-xl">🔋</span>
           <span class="text-sm text-slate-300 group-hover:text-white">Turn on Battery Saver in Settings</span>
         </button>
 
+        <!-- Suggestion 2 -->
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
+          <span class="text-xl">💬</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Send message to Sarah on WhatsApp</span>
+        </button>
+
+        <!-- Suggestion 3 -->
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Uber Eats and search for iced latte">
+          <span class="text-xl">☕</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Order iced latte on Uber Eats</span>
+        </button>
+
         <!-- Suggestion 4 -->
-        <button class="chatgpt-suggestion-row group" data-prompt="Open Bank Wallet and delete all bank accounts">
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Bank Wallet and delete all bank accounts">
           <span class="text-xl">🛡️</span>
           <span class="text-sm text-rose-400 group-hover:text-rose-300">Test Quad-Shield Safety Interceptor</span>
         </button>
@@ -216,42 +269,144 @@
   </footer>
 
   <!-- ======================================================== -->
-  <!-- MODEL HUB MODAL (Clean Dark Modal)                      -->
+  <!-- MODEL HUB & DOWNLOADER MODAL (Clean Dark Modal)           -->
   <!-- ======================================================== -->
   <div id="modelModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl max-w-sm w-full p-5 shadow-2xl text-xs">
+    <div class="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl max-w-sm w-full p-5 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-3 border-b border-[#2C2C2E] mb-3">
-        <h3 class="text-sm font-bold text-white">Select On-Device Model</h3>
+        <div class="flex items-center gap-2">
+          <span class="text-base text-purple-400">⚡</span>
+          <h3 class="text-sm font-bold text-white">Model Hub & Downloader</h3>
+        </div>
         <button id="closeModelModalBtn" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <div class="space-y-2 mb-4">
-        <div class="model-choice p-3 rounded-2xl bg-[#2C2C2E] border border-purple-500/80 cursor-pointer flex justify-between items-center" data-id="gemma-4-2b-it">
-          <div>
-            <div class="font-bold text-white">Google Gemma 4 (2B INT4)</div>
-            <div class="text-[11px] text-slate-400">Google LiteRT-LM • Qualcomm NPU</div>
-          </div>
-          <span class="text-purple-400 font-bold">✓</span>
-        </div>
-
-        <div class="model-choice p-3 rounded-2xl bg-[#262626] border border-transparent hover:border-slate-600 cursor-pointer flex justify-between items-center" data-id="llama-3.2-3b-mobile">
-          <div>
-            <div class="font-bold text-white">Meta Llama 3.2 (3B Q4_K_M)</div>
-            <div class="text-[11px] text-slate-400">llama.cpp GGUF • CPU NEON</div>
-          </div>
-          <span class="text-slate-500 text-xs">Select</span>
-        </div>
-
-        <div class="model-choice p-3 rounded-2xl bg-[#262626] border border-transparent hover:border-slate-600 cursor-pointer flex justify-between items-center" data-id="local-ollama">
-          <div>
-            <div class="font-bold text-white">Local Termux / Ollama Bridge</div>
-            <div class="text-[11px] text-slate-400">http://localhost:11434</div>
-          </div>
-          <span class="text-slate-500 text-xs">Select</span>
-        </div>
+      <!-- Tabs: Local Models vs Cloud API -->
+      <div class="flex rounded-xl bg-[#262626] p-1 mb-3 text-[11px] font-semibold">
+        <button id="tabOnDeviceBtn" class="flex-1 py-1.5 rounded-lg bg-[#333333] text-white transition-all">
+          On-Device Models
+        </button>
+        <button id="tabCloudApiBtn" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">
+          Cloud / Ollama
+        </button>
       </div>
 
-      <button id="doneModelModalBtn" class="w-full py-2.5 bg-white text-black font-bold rounded-xl">
+      <!-- TAB 1: ON-DEVICE MODELS -->
+      <div id="tabOnDeviceContent" class="space-y-3 mb-4">
+        
+        <!-- Google Gemma 4 Card -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/60 space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Google Gemma 4 (2B INT4)</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 font-normal">Official</span>
+              </div>
+              <div class="text-[11px] text-slate-400">LiteRT-LM • 1.45 GB • Qualcomm NPU / CPU</div>
+            </div>
+            <span id="gemmaStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+              Not Installed
+            </span>
+          </div>
+
+          <!-- Download Progress Container -->
+          <div id="gemmaDownloadProgressBox" class="hidden space-y-1.5 pt-1">
+            <div class="w-full bg-[#1C1C1E] rounded-full h-2 overflow-hidden border border-[#3A3A3C]">
+              <div id="gemmaProgressBar" class="bg-purple-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="gemmaProgressText">0 MB / 1.45 GB (0%)</span>
+              <span id="gemmaProgressStatus" class="text-purple-400">Downloading...</span>
+            </div>
+          </div>
+
+          <!-- Download / Action Button -->
+          <button id="downloadGemmaBtn" class="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all">
+            <span>⬇️</span>
+            <span id="downloadGemmaBtnText">Download & Install Gemma 4</span>
+          </button>
+        </div>
+
+        <!-- Meta Llama 3.2 (1B Ultra-Light) -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Meta Llama 3.2 (1B Mobile)</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 font-normal">750 MB</span>
+              </div>
+              <div class="text-[11px] text-slate-400">llama.cpp GGUF • Ultra-Light Storage</div>
+            </div>
+            <span id="llamaStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+              Not Installed
+            </span>
+          </div>
+
+          <div id="llamaDownloadProgressBox" class="hidden space-y-1.5 pt-1">
+            <div class="w-full bg-[#1C1C1E] rounded-full h-2 overflow-hidden border border-[#3A3A3C]">
+              <div id="llamaProgressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="llamaProgressText">0 MB / 750 MB (0%)</span>
+              <span id="llamaProgressStatus" class="text-blue-400">Downloading...</span>
+            </div>
+          </div>
+
+          <button id="downloadLlamaBtn" class="w-full py-2 bg-[#333333] hover:bg-[#3D3D3D] text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all">
+            <span>⬇️</span>
+            <span id="downloadLlamaBtnText">Download Llama 3.2 (750 MB)</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- TAB 2: CLOUD API & OLLAMA -->
+      <div id="tabCloudApiContent" class="space-y-3 mb-4 hidden">
+        
+        <!-- Gemini API Key Card (Instant Zero-Download Testing) -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/40 space-y-2">
+          <div class="font-bold text-white flex items-center gap-1.5">
+            <span>⚡ Google Gemini Flash (Instant Testing)</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Test full autonomous phone actions instantly without downloading 1.5 GB. Enter your free Google Gemini API key:
+          </p>
+          <div class="flex gap-2">
+            <input 
+              type="password" 
+              id="geminiApiKeyInput" 
+              placeholder="Paste Gemini API Key (AIza...)" 
+              class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+            />
+            <button id="saveGeminiKeyBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shrink-0">
+              Save
+            </button>
+          </div>
+          <div id="geminiKeyStatus" class="text-[10px] text-slate-400"></div>
+        </div>
+
+        <!-- Local Ollama Bridge -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2">
+          <div class="font-bold text-white">Local Termux / Ollama Bridge</div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Run models via Termux or a local PC on your Wi-Fi network:
+          </p>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              id="ollamaEndpointInput" 
+              value="http://localhost:11434" 
+              class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+            />
+            <button id="saveOllamaBtn" class="px-3 py-1.5 bg-[#333333] hover:bg-[#3D3D3D] text-white font-bold rounded-xl shrink-0">
+              Connect
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <button id="doneModelModalBtn" class="w-full py-2.5 bg-white text-black font-bold rounded-xl shadow">
         Done
       </button>
     </div>

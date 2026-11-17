@@ -1,6 +1,7 @@
 package ai.novaclaw.agent
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -13,13 +14,19 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /**
  * MainActivity: Android Shell hosting the smooth, whitish, glassy NovaClaw UI.
- * Connects the web client to the native Android Accessibility Service and Safety Guard.
+ * Connects the web client to the native Android Accessibility Service, Model Downloader, and Safety Guard.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -46,13 +53,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(webView)
         webView.loadUrl("file:///android_asset/index.html")
 
-        // Prompt user immediately on first launch if accessibility service is missing
         checkAndPromptPermissions()
     }
 
     override fun onResume() {
         super.onResume()
-        // Notify the web interface of updated permission status
         val isA11y = isAccessibilityServiceEnabled()
         val isOverlay = isOverlayEnabled()
         webView.evaluateJavascript("window.updatePermissionStatus && window.updatePermissionStatus($isA11y, $isOverlay);", null)
@@ -60,7 +65,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkAndPromptPermissions() {
         if (!isAccessibilityServiceEnabled()) {
-            Toast.makeText(this, "Please enable NovaClaw in Accessibility Settings to control phone safely", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Enable NovaClaw in Accessibility Settings to control phone safely", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -72,6 +77,50 @@ class MainActivity : AppCompatActivity() {
 
     private fun isOverlayEnabled(): Boolean {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+    }
+
+    private fun startDownloadWatcher(downloadId: Long, fileName: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            var active = true
+            while (active) {
+                delay(800)
+                val query = DownloadManager.Query().setFilterById(downloadId)
+                val cursor = dm.query(query)
+                if (cursor != null && cursor.moveToFirst()) {
+                    val bytesSoFar = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                    val totalBytes = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+
+                    val statusStr = when (status) {
+                        DownloadManager.STATUS_RUNNING -> "RUNNING"
+                        DownloadManager.STATUS_SUCCESSFUL -> "SUCCESSFUL"
+                        DownloadManager.STATUS_FAILED -> "FAILED"
+                        DownloadManager.STATUS_PAUSED -> "PAUSED"
+                        else -> "PENDING"
+                    }
+
+                    val json = JSONObject().apply {
+                        put("downloadId", downloadId)
+                        put("fileName", fileName)
+                        put("bytesDownloaded", bytesSoFar)
+                        put("bytesTotal", totalBytes)
+                        put("status", statusStr)
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        webView.evaluateJavascript("window.onModelDownloadProgress && window.onModelDownloadProgress($json);", null)
+                    }
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                        active = false
+                    }
+                } else {
+                    active = false
+                }
+                cursor?.close()
+            }
+        }
     }
 
     inner class NovaWebBridge(private val context: Context) {
@@ -95,6 +144,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun openAppInfoSettings() {
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Open App Info in Settings > Apps > NovaClaw AI", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        @JavascriptInterface
         fun openOverlaySettings() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
                 val intent = Intent(
@@ -105,6 +167,55 @@ class MainActivity : AppCompatActivity() {
                 }
                 context.startActivity(intent)
             }
+        }
+
+        @JavascriptInterface
+        fun downloadModel(url: String, fileName: String): Long {
+            return try {
+                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                val uri = Uri.parse(url)
+                val modelsDir = context.getExternalFilesDir("models")
+                if (modelsDir != null && !modelsDir.exists()) {
+                    modelsDir.mkdirs()
+                }
+
+                val request = DownloadManager.Request(uri).apply {
+                    setTitle("NovaClaw: Downloading $fileName")
+                    setDescription("Gemma 4 / On-Device AI Model Weights")
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalFilesDir(context, "models", fileName)
+                    setAllowedOverMetered(true)
+                    setAllowedOverRoaming(true)
+                }
+                val downloadId = dm.enqueue(request)
+                startDownloadWatcher(downloadId, fileName)
+                downloadId
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(context, "Download error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+                -1L
+            }
+        }
+
+        @JavascriptInterface
+        fun checkModelStatus(fileName: String): String {
+            val file = File(context.getExternalFilesDir("models"), fileName)
+            val json = JSONObject()
+            val exists = file.exists() && file.length() > 10L * 1024 * 1024 // Greater than 10MB
+            json.put("installed", exists)
+            json.put("fileSizeBytes", if (file.exists()) file.length() else 0L)
+            json.put("filePath", if (file.exists()) file.absolutePath else "")
+            json.put("fileName", fileName)
+            return json.toString()
+        }
+
+        @JavascriptInterface
+        fun cancelDownload(downloadId: Long) {
+            try {
+                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                dm.remove(downloadId)
+            } catch (e: Exception) {}
         }
 
         @JavascriptInterface
@@ -122,7 +233,6 @@ class MainActivity : AppCompatActivity() {
                     context.startActivity(launchIntent)
                     true
                 } else {
-                    // Try generic intent for common apps
                     if (targetPackage.contains("settings", ignoreCase = true)) {
                         context.startActivity(Intent(Settings.ACTION_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                         true
@@ -139,11 +249,11 @@ class MainActivity : AppCompatActivity() {
         fun captureScreen(): String {
             val service = NovaAccessibilityService.instance ?: return "{}"
             val data = service.capturePrunedScreen()
-            
+
             val json = JSONObject()
             json.put("packageName", data.packageName)
             json.put("stateHash", data.stateHash)
-            
+
             val array = JSONArray()
             for (el in data.elements) {
                 val elJson = JSONObject()
@@ -153,12 +263,12 @@ class MainActivity : AppCompatActivity() {
                 elJson.put("clickable", el.clickable)
                 elJson.put("editable", el.editable)
                 elJson.put("scrollable", el.scrollable)
-                
+
                 val center = JSONObject()
                 center.put("x", el.centerX)
                 center.put("y", el.centerY)
                 elJson.put("center", center)
-                
+
                 array.put(elJson)
             }
             json.put("elements", array)
@@ -170,6 +280,23 @@ class MainActivity : AppCompatActivity() {
             val service = NovaAccessibilityService.instance ?: return false
             return runBlocking {
                 service.performTap(x, y)
+            }
+        }
+
+        @JavascriptInterface
+        fun performScroll(direction: String): Boolean {
+            val service = NovaAccessibilityService.instance ?: return false
+            val displayMetrics = resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels.toFloat()
+            val screenHeight = displayMetrics.heightPixels.toFloat()
+            val midX = screenWidth / 2f
+
+            return runBlocking {
+                if (direction.equals("up", ignoreCase = true)) {
+                    service.performScroll(midX, screenHeight * 0.3f, midX, screenHeight * 0.7f)
+                } else {
+                    service.performScroll(midX, screenHeight * 0.7f, midX, screenHeight * 0.3f)
+                }
             }
         }
 

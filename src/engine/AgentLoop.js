@@ -100,7 +100,14 @@ class AgentLoop {
         plan
       });
 
-      // Check if model declared finish
+      // Check if model declared error, missing setup, or finish
+      if (plan.action === 'error' || plan.needsModelSetup) {
+        this._setState('IDLE');
+        this.isRunning = false;
+        this.callbacks.onError(plan.payload || 'Model is not configured.');
+        return;
+      }
+
       if (plan.action === 'finish') {
         this._setState('COMPLETED');
         this.isRunning = false;
@@ -108,6 +115,7 @@ class AgentLoop {
           success: true,
           goal: this.currentGoal,
           totalSteps: this.stepIndex,
+          isConversational: plan.isConversational || false,
           summary: plan.payload || 'Task successfully accomplished and verified.'
         });
         return;
