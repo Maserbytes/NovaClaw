@@ -35,36 +35,32 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/NovaClaw-v1.0.0.apk \;
+          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/NovaClaw-v1.0.1.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.0-apk
-          path: dist/NovaClaw-v1.0.0.apk
+          name: NovaClaw-v1.0.1-apk
+          path: dist/NovaClaw-v1.0.1.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.0
-          name: "NovaClaw v1.0.0 — Safe On-Device AI Mobile Operator"
+          tag_name: v1.0.1
+          name: "NovaClaw v1.0.1 — Clean Mobile UI & Native Accessibility Integration"
           body: |
-            ## 📱 NovaClaw v1.0.0 APK Release
+            ## 📱 NovaClaw v1.0.1 Update
             
-            Welcome to NovaClaw! This APK can be installed directly on your Android device.
+            ### 🛠️ Improvements in v1.0.1:
+            - **Native Mobile Viewport Fix**: Completely removed the redundant desktop phone frame mockup when viewed on a phone. The app now natively fills your full mobile screen with zero horizontal overflow or clipping!
+            - **Permission Onboarding Banner**: Prominently prompts for **Accessibility Permission** with a 1-tap direct shortcut to Android Settings on launch.
+            - **Native Device Automation Bridge**: Connected the UI directly to real phone commands via `AndroidBridge` — real app launching, real gesture tapping, and real screen node perception.
+            - **ChatGPT Mobile UI Refinement**: Beautiful clean whitish background, smooth frosted glass cards, collapsible thought accordions, and streamlined quick-prompt cards.
             
-            ### ✨ Features:
-            - **Google Gemma 4 & Llama 3.2 on-device runtime** (Google LiteRT-LM & llama.cpp).
-            - **Antigravity / Codex Execution Loop**: Screen perception with Set-of-Marks, tactical sub-goals, action execution, and state change verification.
-            - **Quad-Shield Safety Architecture**: Package Firewall (Settings/Banking/Crypto), Destructive Action Interceptor (delete/wipe/pay), and 0ms Floating Kill-Switch.
-            - **Smooth Whitish Glassmorphism UI**: Beautiful ChatGPT-inspired interface with responsive mobile view.
-            
-            ### 📥 Installation:
-            1. Download `NovaClaw-v1.0.0.apk` below directly to your phone.
-            2. Tap to install (enable "Install from unknown sources" if prompted).
-            3. Open NovaClaw and enable the Accessibility Service when prompted.
-          files: dist/NovaClaw-v1.0.0.apk
+            ### 📥 Download & Install:
+            Download `NovaClaw-v1.0.1.apk` below directly to your Android phone.
+          files: dist/NovaClaw-v1.0.1.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
