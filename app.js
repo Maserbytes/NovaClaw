@@ -54,18 +54,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (this.isNative) {
         if (action.type === 'launch_app') {
           window.AndroidBridge.launchApp(action.payload);
+          await new Promise(r => setTimeout(r, 1200));
         } else if (action.type === 'click' && action.targetElement?.center) {
           window.AndroidBridge.performTap(action.targetElement.center.x, action.targetElement.center.y);
+          await new Promise(r => setTimeout(r, 750));
         } else if (action.type === 'scroll') {
           window.AndroidBridge.performScroll(action.payload || 'down');
+          await new Promise(r => setTimeout(r, 850));
         } else if (action.type === 'type') {
           window.AndroidBridge.performText(action.targetId || 1, action.payload || '');
+          await new Promise(r => setTimeout(r, 600));
         } else if (action.type === 'key_back') {
           window.AndroidBridge.performBack();
+          await new Promise(r => setTimeout(r, 600));
         } else if (action.type === 'key_home') {
           window.AndroidBridge.performHome();
+          await new Promise(r => setTimeout(r, 600));
         }
-        await new Promise(r => setTimeout(r, 650));
         return;
       }
 

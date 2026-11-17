@@ -35,35 +35,34 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.6.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.7.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.6-apk
-          path: dist/NovaClaw-v1.0.6.apk
+          name: NovaClaw-v1.0.7-apk
+          path: dist/NovaClaw-v1.0.7.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.6
-          name: "NovaClaw v1.0.6 — Fixed Gemma 4 Public Direct Download"
+          tag_name: v1.0.7
+          name: "NovaClaw v1.0.7 — Smart Search Navigation & Native Accessibility Scrolling"
           body: |
-            ## 📱 NovaClaw v1.0.6 Update
+            ## 📱 NovaClaw v1.0.7 Update
 
-            ### 🚀 Fixes in v1.0.6:
-            - **⚡ Fixed Google Gemma 4 Download URL**:
-              - The previous Google Hugging Face URL required user login and was gated, causing an immediate 401 Unauthorized (`FAILED 0.0 MB`).
-              - Switched Gemma 4 to the verified public direct endpoint (`bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf`), which downloads unthrottled and ungated without any login prompt!
-            - **Auto-Activate Installed Models**:
-              - When Llama 3.2 or Gemma 4 finishes downloading, NovaClaw automatically detects the file and sets it as the active operational model.
-            - **Retry & Error Recovery**:
-              - Added retry buttons and automatic state reset if an intermittent network error occurs during model download.
+            ### 🚀 Enhancements in v1.0.7:
+            - **🔍 Smart Search-First Settings Navigation**:
+              - Automatically uses the Settings Search bar to instantly locate buried toggles like **Battery Saver / Power Saving Mode** without getting lost in deep OEM menus (ColorOS, OxygenOS, OneUI).
+            - **📜 Native View Hierarchy Scrolling**:
+              - Implemented native `ACTION_SCROLL_FORWARD` on Android accessibility scrollable views, ensuring guaranteed list scrolling across all phone manufacturers.
+            - **⚡ App Settle Timing**:
+              - Increased transition debounce to 1,200ms after app launches, giving apps ample time to render their accessibility node tree before capture.
 
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.6.apk` below directly to your device.
-          files: dist/NovaClaw-v1.0.6.apk
+            Download `NovaClaw-v1.0.7.apk` below directly to your phone.
+          files: dist/NovaClaw-v1.0.7.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

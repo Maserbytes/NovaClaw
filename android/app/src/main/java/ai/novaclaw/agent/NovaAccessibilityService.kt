@@ -111,6 +111,28 @@ class NovaAccessibilityService : AccessibilityService() {
     }
 
     /**
+     * Directly triggers native scroll on scrollable view hierarchy.
+     */
+    fun scrollScrollable(forward: Boolean): Boolean {
+        val root = rootInActiveWindow ?: return false
+        fun findScrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+            if (node == null) return null
+            if (node.isScrollable) return node
+            for (i in 0 until node.childCount) {
+                val found = findScrollable(node.getChild(i))
+                if (found != null) return found
+            }
+            return null
+        }
+        val target = findScrollable(root)
+        if (target != null) {
+            val action = if (forward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+            return target.performAction(action)
+        }
+        return false
+    }
+
+    /**
      * Dispatches a verified scroll gesture.
      */
     suspend fun performScroll(startX: Float, startY: Float, endX: Float, endY: Float): Boolean = withContext(Dispatchers.Main) {

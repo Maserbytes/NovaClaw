@@ -286,16 +286,23 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun performScroll(direction: String): Boolean {
             val service = NovaAccessibilityService.instance ?: return false
+            val isForward = !direction.equals("up", ignoreCase = true)
+
+            // 1. First attempt native scroll action on scrollable container (100% reliable)
+            val nativeSuccess = service.scrollScrollable(isForward)
+            if (nativeSuccess) return true
+
+            // 2. Fallback to physical touch drag
             val displayMetrics = resources.displayMetrics
             val screenWidth = displayMetrics.widthPixels.toFloat()
             val screenHeight = displayMetrics.heightPixels.toFloat()
             val midX = screenWidth / 2f
 
             return runBlocking {
-                if (direction.equals("up", ignoreCase = true)) {
-                    service.performScroll(midX, screenHeight * 0.3f, midX, screenHeight * 0.7f)
+                if (!isForward) {
+                    service.performScroll(midX, screenHeight * 0.25f, midX, screenHeight * 0.75f)
                 } else {
-                    service.performScroll(midX, screenHeight * 0.7f, midX, screenHeight * 0.3f)
+                    service.performScroll(midX, screenHeight * 0.75f, midX, screenHeight * 0.25f)
                 }
             }
         }

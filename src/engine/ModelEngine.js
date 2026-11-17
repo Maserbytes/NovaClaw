@@ -394,7 +394,8 @@ Respond with a JSON object matching this exact schema:
         };
       }
 
-      const batterySaverToggle = findEl(['battery saver', 'turn on battery saver', 'power saving mode']);
+      // 1. Check if Battery Saver or Power Saving toggle is directly visible
+      const batterySaverToggle = findEl(['battery saver', 'turn on battery saver', 'power saving mode', 'ultra power saving']);
       if (batterySaverToggle) {
         const lastAction = history[history.length - 1];
         if (lastAction && lastAction.type === 'click' && lastAction.targetId === batterySaverToggle.id) {
@@ -414,7 +415,8 @@ Respond with a JSON object matching this exact schema:
         };
       }
 
-      const batteryEntry = findEl(['battery', 'power']);
+      // 2. Check if Battery menu entry is visible
+      const batteryEntry = findEl(['battery', 'power & battery', 'battery & performance']);
       if (batteryEntry) {
         return {
           thought: `Found Settings entry "${batteryEntry.label}" [${batteryEntry.id}]. Navigating to Battery menu.`,
@@ -424,11 +426,32 @@ Respond with a JSON object matching this exact schema:
         };
       }
 
-      // If battery is not on current screen, scroll down to find it
-      const hasScrolled = history.filter(h => h.type === 'scroll').length;
-      if (hasScrolled < 3) {
+      // 3. Search Bar Shortcut: If Search Bar is visible, use it to instantly find Battery Saver
+      const searchBar = findEl(['search', 'search settings', 'search settings…', 'search_src_text']);
+      const hasSearched = history.some(h => h.type === 'type');
+      if (searchBar && !hasSearched) {
+        const lastAction = history[history.length - 1];
+        if (lastAction && lastAction.type === 'click' && lastAction.targetId === searchBar.id) {
+          return {
+            thought: `Search bar is focused. Typing "Battery saver" to locate setting instantly.`,
+            action: 'type',
+            target_id: searchBar.id,
+            payload: 'Battery saver'
+          };
+        }
         return {
-          thought: `Battery option is not visible on the top of the Settings screen. Scrolling down to find it.`,
+          thought: `Battery is not on current viewport. Tapping Settings Search bar [${searchBar.id}] to search directly.`,
+          action: 'click',
+          target_id: searchBar.id,
+          payload: null
+        };
+      }
+
+      // 4. Scroll down Settings list to find Battery
+      const scrollCount = history.filter(h => h.type === 'scroll').length;
+      if (scrollCount < 6) {
+        return {
+          thought: `Battery option is not yet visible in viewport. Scrolling down (attempt ${scrollCount + 1}/6).`,
           action: 'scroll',
           target_id: null,
           payload: 'down'
