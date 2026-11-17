@@ -1,0 +1,73 @@
+name: Build NovaClaw Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build APK with Gradle
+        working-directory: ./android
+        run: |
+          gradle wrapper --gradle-version 8.2
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Prepare APK Asset
+        run: |
+          mkdir -p dist
+          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/NovaClaw-v1.0.0.apk \;
+          ls -lh dist/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaClaw-v1.0.0-apk
+          path: dist/NovaClaw-v1.0.0.apk
+
+      - name: Create GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/main')
+        with:
+          tag_name: v1.0.0
+          name: "NovaClaw v1.0.0 — Safe On-Device AI Mobile Operator"
+          body: |
+            ## 📱 NovaClaw v1.0.0 APK Release
+            
+            Welcome to NovaClaw! This APK can be installed directly on your Android device.
+            
+            ### ✨ Features:
+            - **Google Gemma 4 & Llama 3.2 on-device runtime** (Google LiteRT-LM & llama.cpp).
+            - **Antigravity / Codex Execution Loop**: Screen perception with Set-of-Marks, tactical sub-goals, action execution, and state change verification.
+            - **Quad-Shield Safety Architecture**: Package Firewall (Settings/Banking/Crypto), Destructive Action Interceptor (delete/wipe/pay), and 0ms Floating Kill-Switch.
+            - **Smooth Whitish Glassmorphism UI**: Beautiful ChatGPT-inspired interface with responsive mobile view.
+            
+            ### 📥 Installation:
+            1. Download `NovaClaw-v1.0.0.apk` below directly to your phone.
+            2. Tap to install (enable "Install from unknown sources" if prompted).
+            3. Open NovaClaw and enable the Accessibility Service when prompted.
+          files: dist/NovaClaw-v1.0.0.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

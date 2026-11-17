@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.NovaClaw" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#F8F9FA</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

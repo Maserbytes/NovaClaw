@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">NovaClaw AI</string>
+    <string name="accessibility_service_description">NovaClaw Safe Phone Automation Agent powered by Google Gemma 4 and Codex / Antigravity Execution Loop.</string>
+</resources>
