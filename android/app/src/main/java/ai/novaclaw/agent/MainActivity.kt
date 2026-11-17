@@ -110,11 +110,7 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun startFloatingOverlay() {
             val intent = Intent(context, FloatingOverlayService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startService(intent)
         }
 
         @JavascriptInterface

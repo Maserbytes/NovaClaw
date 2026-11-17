@@ -1,8 +1,5 @@
 package ai.novaclaw.agent
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -10,7 +7,6 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
@@ -29,36 +25,7 @@ class FloatingOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startForegroundServiceNotification()
         setupFloatingPill()
-    }
-
-    private fun startForegroundServiceNotification() {
-        val channelId = "novaclaw_overlay"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "NovaClaw Phone Automation",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-        }
-
-        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, channelId)
-                .setContentTitle("NovaClaw Agent Active")
-                .setContentText("Autonomous phone operator running safely")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-                .setContentTitle("NovaClaw Agent Active")
-                .build()
-        }
-
-        startForeground(1001, notification)
     }
 
     private fun setupFloatingPill() {
@@ -85,10 +52,10 @@ class FloatingOverlayService : Service() {
         // Programmatic glassy pill view
         val pill = TextView(this).apply {
             text = "⚡ NovaClaw: Gemma 4 Active  [Tap to Stop]"
-            setPadding(32, 16, 32, 16)
+            setPadding(36, 16, 36, 16)
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 12f
-            setBackgroundColor(0xCC111827.toInt()) // Frosted dark obsidian
+            setBackgroundColor(0xDD111827.toInt()) // Frosted dark obsidian
             setOnClickListener {
                 // Emergency Stop on tap
                 NovaAccessibilityService.instance?.performHome()
@@ -97,11 +64,19 @@ class FloatingOverlayService : Service() {
         }
 
         floatingView = pill
-        windowManager.addView(floatingView, params)
+        try {
+            windowManager.addView(floatingView, params)
+        } catch (e: Exception) {
+            // Overlay permission might not be granted yet
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        floatingView?.let { windowManager.removeView(it) }
+        floatingView?.let {
+            try {
+                windowManager.removeView(it)
+            } catch (e: Exception) {}
+        }
     }
 }

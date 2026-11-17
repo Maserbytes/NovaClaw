@@ -35,35 +35,40 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.3.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.4.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.3-apk
-          path: dist/NovaClaw-v1.0.3.apk
+          name: NovaClaw-v1.0.4-apk
+          path: dist/NovaClaw-v1.0.4.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.3
-          name: "NovaClaw v1.0.3 — Fixed Android Installation & Permanent Signing"
+          tag_name: v1.0.4
+          name: "NovaClaw v1.0.4 — Targeted for Android 14+ (No Older Version Warning)"
           body: |
-            ## 📱 NovaClaw v1.0.3 Update
-            
-            ### 🔧 Fixes in v1.0.3:
-            - **Fixed "Installation failed / Check the APK"**:
-              1. **Permanent v1 & v2 Signature**: Generated and bundled a permanent release signing certificate (`release.keystore`) enabling seamless installation across all Android versions without signature mismatch errors.
-              2. **OEM Compatibility (ColorOS / OxygenOS / HyperOS)**: Optimized manifest permissions and set targetSdk 33 to prevent OEM package verifier rejections.
-            - **ChatGPT Mobile Interface**: Clean home screen ("Where should we start?") with slide-out side drawer `☰`.
-            
-            ### ⚠️ Important Note Before Installing:
-            If you have an earlier attempt of NovaClaw installed on your phone, **please uninstall the previous version first** so Android clears old conflicting signatures.
-            
+            ## 📱 NovaClaw v1.0.4 Update
+
+            ### 🚀 What's New & Fixed in v1.0.4:
+            - **Target Android 14 (API 34)**: Updated `targetSdk` to 34 and `compileSdk` to 34. This eliminates the *"This app was built for an older version of Android"* warning completely.
+            - **Seamless Background Services**: Fixed overlay service lifecycle to conform to Android 14 background service policies.
+            - **Permanent Keystore & v1/v2 Signature**: Packaged with a permanent release keystore preventing any installer signature rejections.
+            - **ChatGPT Mobile UI**: Dark minimal home screen ("Where should we start?") with slide-out drawer holding model selection, permission setup, and safety logs.
+
+            ### ⚠️ Quick Tip for Android 13/14 Users (Accessibility):
+            When enabling NovaClaw in Accessibility Settings on Android 13 or 14:
+            If your phone shows **"Restricted setting"**:
+            1. Long press the **NovaClaw AI** icon on your home screen -> Tap **App Info** (or Settings > Apps > NovaClaw AI).
+            2. Tap the **3 dots** in the top right corner.
+            3. Tap **Allow restricted settings**, and verify with your PIN/fingerprint.
+            4. Now go to **Accessibility Settings** -> Turn on **NovaClaw AI**.
+
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.3.apk` below directly to your phone.
-          files: dist/NovaClaw-v1.0.3.apk
+            Download `NovaClaw-v1.0.4.apk` below directly to your device.
+          files: dist/NovaClaw-v1.0.4.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
