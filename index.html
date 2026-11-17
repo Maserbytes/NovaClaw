@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaClaw — Safe On-Device AI Mobile Operator (Gemma 4 / Codex Engine)</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Tailwind CSS CDN for utility classes -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#F5F3FF',
+              500: '#7C3AED',
+              600: '#6D28D9',
+              900: '#1E1B4B'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="flex flex-col min-h-screen">
+
+  <!-- Top Glass Navigation Bar -->
+  <header class="glass-surface sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between border-b border-slate-200/80">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-slate-900/10">
+        ✦
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-semibold text-slate-900 tracking-tight">NovaClaw</h1>
+          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+            Codex Mobile OS
+          </span>
+        </div>
+        <p class="text-xs text-slate-500">Autonomous & Safe On-Device Phone Operator</p>
+      </div>
+    </div>
+
+    <!-- Center Model Switcher & Hardware Telemetry -->
+    <div class="hidden md:flex items-center gap-2">
+      <!-- Model Pill Selector -->
+      <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium text-slate-700">
+        <span class="status-dot-blue"></span>
+        <select id="modelSelector" class="bg-transparent border-none text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer">
+          <option value="gemma-4-2b-it">Google Gemma 4 (2B INT4) — LiteRT-LM</option>
+          <option value="gemma-4-4b-it">Google Gemma 4 (4B INT4) — High Reasoning</option>
+          <option value="llama-3.2-3b-mobile">Meta Llama 3.2 (3B Q4_K_M) — llama.cpp</option>
+          <option value="qwen-2.5-1.5b-instruct">Qwen 2.5 (1.5B INT4) — Ultra-Light</option>
+          <option value="local-ollama">Local Termux / Ollama Bridge</option>
+        </select>
+      </div>
+
+      <!-- Edge Hardware Badge -->
+      <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-2 text-xs text-slate-600">
+        <span class="text-slate-400">⚡</span>
+        <span id="hardwareBadge" class="font-medium text-slate-700">Qualcomm NPU (28.4 tok/s)</span>
+      </div>
+
+      <!-- RAM Usage -->
+      <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-2 text-xs text-slate-600">
+        <span class="text-slate-400">RAM</span>
+        <span id="ramBadge" class="font-medium text-slate-700">1.84 GB / 8 GB</span>
+      </div>
+    </div>
+
+    <!-- Right Controls: Safety Center & Reset -->
+    <div class="flex items-center gap-2.5">
+      <button id="safetyCenterBtn" class="glass-pill hover:bg-white text-slate-700 px-3.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all">
+        <span class="status-dot-green"></span>
+        <span>Quad-Shield: Active</span>
+      </button>
+
+      <button id="modelManagerBtn" class="glass-pill hover:bg-white text-slate-700 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all">
+        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Model Hub</span>
+      </button>
+
+      <button id="resetDemoBtn" class="glass-pill hover:bg-rose-50 hover:text-rose-600 text-slate-500 px-3 py-1.5 rounded-full text-xs font-medium transition-all" title="Reset Environment to Home">
+        ↻ Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport -->
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    
+    <!-- Left Column: ChatGPT / Codex Agent Workspace (7 cols) -->
+    <div class="lg:col-span-7 flex flex-col h-[820px] glass-surface rounded-3xl p-5 relative overflow-hidden">
+      
+      <!-- Chat Conversation & Timeline Feed -->
+      <div id="chatFeed" class="flex-1 overflow-y-auto space-y-4 pr-2">
+        
+        <!-- Welcome Hero Card -->
+        <div id="heroCard" class="text-center py-6 px-4">
+          <div class="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center text-xl shadow-lg shadow-purple-500/20 mb-3">
+            ✦
+          </div>
+          <h2 class="text-xl font-bold text-slate-800 tracking-tight mb-1">What should NovaClaw do on your phone?</h2>
+          <p class="text-xs text-slate-500 max-w-md mx-auto mb-6">
+            Hosts Google Gemma 4 locally on mobile. Controls your phone with Antigravity-style pre/post action verification, Set-of-Marks grounding, and Quad-Shield safety protection.
+          </p>
+
+          <!-- Prompt Preset Pills -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-lg mx-auto text-left">
+            <button class="preset-btn glass-pill hover:bg-purple-50 hover:border-purple-200 text-slate-700 p-3 rounded-2xl text-xs flex flex-col transition-all border text-left group" data-prompt="Send a message to Sarah on WhatsApp saying 'Let\'s meet at 5'">
+              <span class="font-semibold text-slate-800 group-hover:text-purple-600 flex items-center gap-1.5">
+                <span>💬</span> WhatsApp Message
+              </span>
+              <span class="text-[11px] text-slate-500 mt-0.5">"Message Sarah: Let's meet at 5"</span>
+            </button>
+
+            <button class="preset-btn glass-pill hover:bg-purple-50 hover:border-purple-200 text-slate-700 p-3 rounded-2xl text-xs flex flex-col transition-all border text-left group" data-prompt="Find iced latte on Uber Eats and add to cart">
+              <span class="font-semibold text-slate-800 group-hover:text-purple-600 flex items-center gap-1.5">
+                <span>☕</span> Uber Eats Order
+              </span>
+              <span class="text-[11px] text-slate-500 mt-0.5">"Find Iced Latte and add to cart"</span>
+            </button>
+
+            <button class="preset-btn glass-pill hover:bg-purple-50 hover:border-purple-200 text-slate-700 p-3 rounded-2xl text-xs flex flex-col transition-all border text-left group" data-prompt="Open Settings and turn on Battery Saver">
+              <span class="font-semibold text-slate-800 group-hover:text-purple-600 flex items-center gap-1.5">
+                <span>🔋</span> System Settings
+              </span>
+              <span class="text-[11px] text-slate-500 mt-0.5">"Turn on Battery Saver in Settings"</span>
+            </button>
+
+            <button class="preset-btn glass-pill hover:bg-rose-50 hover:border-rose-200 text-slate-700 p-3 rounded-2xl text-xs flex flex-col transition-all border text-left group" data-prompt="Open Bank Wallet and delete all bank accounts">
+              <span class="font-semibold text-rose-700 flex items-center gap-1.5">
+                <span>🛡️</span> Safety Shield Test
+              </span>
+              <span class="text-[11px] text-slate-500 mt-0.5">"Wipe Bank Account" (Destructive test)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Message Container -->
+        <div id="messagesContainer" class="space-y-4"></div>
+
+      </div>
+
+      <!-- Execution Status Bar -->
+      <div id="executionStatusBar" class="hidden my-2 px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200 text-xs flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span id="agentStateDot" class="status-dot-blue"></span>
+          <span id="agentStateText" class="font-medium text-slate-700">Thinking...</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-500 text-[11px]">
+          <span>Step <strong id="currentStepNum" class="text-slate-700">1</strong>/15</span>
+          <span id="latencyMetric">24.6 tok/s</span>
+        </div>
+      </div>
+
+      <!-- Bottom ChatGPT-Style Input Composer -->
+      <div class="mt-2 pt-2 border-t border-slate-200/70">
+        <form id="chatForm" class="glass-pill p-2 rounded-2xl flex items-center gap-2 border border-slate-300/80 shadow-sm focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-100 transition-all">
+          
+          <!-- Set-of-Marks Toggle -->
+          <button type="button" id="toggleSomBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all bg-purple-50 text-purple-700 border border-purple-200" title="Toggle Set-of-Marks Visual Grounding Overlay">
+            <span>[#]</span>
+            <span class="hidden sm:inline">SoM</span>
+          </button>
+
+          <!-- Input Textarea -->
+          <input 
+            type="text" 
+            id="promptInput" 
+            placeholder="Tell NovaClaw what to do on your phone (e.g. 'Order coffee on UberEats')..." 
+            class="flex-1 bg-transparent px-2 py-1 text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
+            autocomplete="off"
+          />
+
+          <!-- Emergency Kill-Switch / Send Button -->
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="emergencyStopBtn" class="hidden px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 text-xs font-semibold transition-all">
+              ⏹ Abort
+            </button>
+            <button type="submit" id="submitBtn" class="send-button" title="Send Request">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </form>
+        <p class="text-[11px] text-center text-slate-400 mt-2">
+          NovaClaw executes on-device via LiteRT-LM. Quad-Shield guards prevent unauthorized purchases or data modification.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Interactive Mobile Phone Sandbox (5 cols) -->
+    <div class="lg:col-span-5 flex flex-col items-center">
+      
+      <!-- Phone Viewport Frame -->
+      <div class="phone-chassis">
+        <div class="phone-screen" id="phoneScreen">
+          
+          <!-- Dynamic Island Notch -->
+          <div class="dynamic-island">
+            <div class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></div>
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+          </div>
+
+          <!-- Phone Status Bar -->
+          <div class="h-10 px-6 pt-2 flex items-center justify-between text-[11px] font-semibold text-slate-800 z-20">
+            <span id="phoneClock">16:20</span>
+            <div class="flex items-center gap-1.5">
+              <span>5G</span>
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zm-2.829 2.828a3 3 0 00-4.242 0 1 1 0 01-1.415-1.414 5 5 0 017.072 0 1 1 0 01-1.415 1.414zM9 16a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd"/></svg>
+              <span>88%</span>
+            </div>
+          </div>
+
+          <!-- Floating Overlay Pill (Always-on-top Kill Switch) -->
+          <div id="floatingOverlayPill" class="floating-overlay-pill" title="NovaClaw System Overlay. Tap to immediately abort execution.">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span id="floatingPillText">NovaClaw: Safe Guard Active</span>
+            <span class="text-[9px] opacity-75 font-mono ml-1">✕</span>
+          </div>
+
+          <!-- App Screen Canvas -->
+          <div id="mobileAppContainer" class="flex-1 overflow-y-auto relative bg-slate-50">
+            <!-- App Content Rendered Here via JavaScript -->
+          </div>
+
+          <!-- Set-of-Marks (SoM) Coordinate Badges Overlay Container -->
+          <div id="somOverlayContainer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+          <!-- Touch Ripple Container -->
+          <div id="touchRippleContainer" class="absolute inset-0 pointer-events-none z-40"></div>
+
+          <!-- Android Bottom Navigation Bar -->
+          <div class="h-11 bg-white/90 border-t border-slate-200/70 flex items-center justify-around px-8 z-20">
+            <button id="androidBackBtn" class="text-slate-400 hover:text-slate-800 p-1" title="Back">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button id="androidHomeBtn" class="text-slate-400 hover:text-slate-800 p-1" title="Home">
+              <div class="w-3.5 h-3.5 rounded-full border-2 border-current"></div>
+            </button>
+            <button id="androidRecentsBtn" class="text-slate-400 hover:text-slate-800 p-1" title="Recents">
+              <div class="w-3.5 h-3.5 rounded-sm border-2 border-current"></div>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Phone Environment Status Subtitle -->
+      <div class="flex items-center gap-3 mt-3 text-xs text-slate-500">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span>Accessibility Service: Bound</span>
+        </span>
+        <span>•</span>
+        <span>Screen: <span id="currentScreenLabel" class="font-medium text-slate-700">Home Screen</span></span>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Human-In-The-Loop Safety Confirmation Modal -->
+  <div id="safetyModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-surface bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200/80 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg">
+          🛡️
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Safety Interception Required</h3>
+          <p class="text-xs text-rose-600 font-semibold" id="safetyRiskBadge">Risk Level: HIGH</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-600 mb-3" id="safetyModalReason">
+        Target package is classified as a Protected Sensitive Application.
+      </p>
+
+      <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 mb-5 font-mono" id="safetyModalTarget">
+        Target: com.finance.bankwallet
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5">
+        <button id="safetyDenyBtn" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all">
+          Block & Abort
+        </button>
+        <button id="safetyApproveBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-md shadow-rose-600/20">
+          Authorize Once
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Safety Center Drawer / Modal -->
+  <div id="safetyCenterModal" class="hidden fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-surface bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+            🛡️
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Quad-Shield Safety Guardian</h3>
+            <p class="text-[11px] text-slate-500">Autonomous Execution Guardrails & Firewall</p>
+          </div>
+        </div>
+        <button id="closeSafetyCenterBtn" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-slate-600 mb-5">
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+          <div class="font-semibold text-slate-800 mb-1">1. Protected Package Firewall</div>
+          <p class="text-[11px] text-slate-500">Automatically intercepts access to Settings, Banking apps, Biometric Vaults, and System Package Installers.</p>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+          <div class="font-semibold text-slate-800 mb-1">2. Destructive Keyword Interceptor</div>
+          <p class="text-[11px] text-slate-500">Halts before tapping buttons matching: <code>delete, wipe, clear storage, pay, transfer, format</code>.</p>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+          <div class="font-semibold text-slate-800 mb-1">3. 0ms Floating Kill-Switch</div>
+          <p class="text-[11px] text-slate-500">An always-visible floating pill enables instantaneous gesture cancellation at any millisecond.</p>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+          <div class="font-semibold text-slate-800 mb-1">4. Dual-State Action Verification</div>
+          <p class="text-[11px] text-slate-500">Diffs screen trees before & after actions to verify UI progression, preventing infinite click loops.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button id="safetyDoneBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Edge Runtime Hub Modal -->
+  <div id="modelHubModal" class="hidden fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-surface bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+            ⚡
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">On-Device Edge Models Hub</h3>
+            <p class="text-[11px] text-slate-500">Manage Local Mobile Runtimes (LiteRT-LM / llama.cpp)</p>
+          </div>
+        </div>
+        <button id="closeModelHubBtn" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-3 mb-5 max-h-80 overflow-y-auto pr-1">
+        <div class="p-3 bg-purple-50/60 rounded-2xl border border-purple-200 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-slate-800 text-xs">Google Gemma 4 (2B INT4)</div>
+            <div class="text-[11px] text-slate-500">Runtime: LiteRT-LM • Size: 1.45 GB • Qualcomm NPU</div>
+          </div>
+          <span class="text-[11px] font-semibold text-purple-700 bg-purple-100 px-2.5 py-1 rounded-full">Active</span>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-slate-800 text-xs">Google Gemma 4 (4B INT4)</div>
+            <div class="text-[11px] text-slate-500">Runtime: LiteRT-LM • Size: 2.80 GB • Adreno/Mali GPU</div>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-500 bg-slate-200/80 px-2.5 py-1 rounded-full">Installed</span>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-slate-800 text-xs">Meta Llama 3.2 (3B Q4_K_M)</div>
+            <div class="text-[11px] text-slate-500">Runtime: llama.cpp • Size: 2.02 GB • CPU NEON / OpenCL</div>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-500 bg-slate-200/80 px-2.5 py-1 rounded-full">Installed</span>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-slate-800 text-xs">Local Termux / Ollama Bridge</div>
+            <div class="text-[11px] text-slate-500">Endpoint: http://localhost:11434 • Hybrid Mode</div>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-500 bg-slate-200/80 px-2.5 py-1 rounded-full">Ready</span>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-100 rounded-xl text-[11px] text-slate-600 mb-4">
+        <strong>Hardware Acceleration:</strong> Using Qualcomm Hexagon NPU with FP16/INT4 mixed precision. Fallback to CPU NEON enabled if GPU driver crashes.
+      </div>
+
+      <div class="flex justify-end">
+        <button id="modelHubDoneBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Core Modules & Application Logic -->
+  <script src="src/engine/SemanticUIPruner.js"></script>
+  <script src="src/engine/SafetyShield.js"></script>
+  <script src="src/engine/ActionVerifier.js"></script>
+  <script src="src/engine/ModelEngine.js"></script>
+  <script src="src/data/mockApps.js"></script>
+  <script src="src/engine/AgentLoop.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
