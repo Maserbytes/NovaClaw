@@ -35,32 +35,35 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/NovaClaw-v1.0.2.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.3.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.2-apk
-          path: dist/NovaClaw-v1.0.2.apk
+          name: NovaClaw-v1.0.3-apk
+          path: dist/NovaClaw-v1.0.3.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.2
-          name: "NovaClaw v1.0.2 — Authentic ChatGPT Mobile Design & Side Drawer"
+          tag_name: v1.0.3
+          name: "NovaClaw v1.0.3 — Fixed Android Installation & Permanent Signing"
           body: |
-            ## 📱 NovaClaw v1.0.2 Update
+            ## 📱 NovaClaw v1.0.3 Update
             
-            ### ✨ Exact ChatGPT Mobile Design (Images Match):
-            - **Clean Minimalist Home Screen**: Replaced crowded cards with the exact ChatGPT mobile layout ("Where should we start?" with simple, clean prompt rows).
-            - **Side Drawer Navigation**: All configurations, model switcher, accessibility status, and permissions are tucked neatly into a smooth slide-out side drawer (tap `☰` on top left).
-            - **ChatGPT Bottom Pill Bar**: Clean rounded dark pill composer with `+` action button, auto-scaling input, and send icon.
-            - **Collapsible Thought Pills**: Compact `💭 Step Reasoning ▾` pills that expand without cluttering the screen.
+            ### 🔧 Fixes in v1.0.3:
+            - **Fixed "Installation failed / Check the APK"**:
+              1. **Permanent v1 & v2 Signature**: Generated and bundled a permanent release signing certificate (`release.keystore`) enabling seamless installation across all Android versions without signature mismatch errors.
+              2. **OEM Compatibility (ColorOS / OxygenOS / HyperOS)**: Optimized manifest permissions and set targetSdk 33 to prevent OEM package verifier rejections.
+            - **ChatGPT Mobile Interface**: Clean home screen ("Where should we start?") with slide-out side drawer `☰`.
+            
+            ### ⚠️ Important Note Before Installing:
+            If you have an earlier attempt of NovaClaw installed on your phone, **please uninstall the previous version first** so Android clears old conflicting signatures.
             
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.2.apk` below directly to your phone.
-          files: dist/NovaClaw-v1.0.2.apk
+            Download `NovaClaw-v1.0.3.apk` below directly to your phone.
+          files: dist/NovaClaw-v1.0.3.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
