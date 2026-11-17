@@ -35,44 +35,35 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.5.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.6.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.5-apk
-          path: dist/NovaClaw-v1.0.5.apk
+          name: NovaClaw-v1.0.6-apk
+          path: dist/NovaClaw-v1.0.6.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.5
-          name: "NovaClaw v1.0.5 — On-Device Model Downloader & Real Execution Engine"
+          tag_name: v1.0.6
+          name: "NovaClaw v1.0.6 — Fixed Gemma 4 Public Direct Download"
           body: |
-            ## 📱 NovaClaw v1.0.5 Major Update
+            ## 📱 NovaClaw v1.0.6 Update
 
-            ### 🚀 What's New & Fixed in v1.0.5:
-            - **⚡ Direct Model Downloader**:
-              - In-app 1-click **Download & Install Google Gemma 4 (2B INT4)** (1.45 GB) with real-time download progress bar and speed indicator!
-              - Also includes **Meta Llama 3.2 (1B Ultra-Light)** (750 MB) for lower storage phones.
-              - **Google Gemini Flash Cloud Bridge**: Enter your free Gemini API key to test full autonomous reasoning immediately without waiting for a 1.5 GB download.
-              - **Local Ollama / Termux Bridge**: Connect directly to `http://localhost:11434`.
-            - **📱 Real Accessibility & Screen Grounding**:
-              - Added persistent **Accessibility Setup Banner** and direct **"App Info (3-dots)"** button to bypass Android 14 restricted settings with 1 tap.
-              - Action execution halts and clearly alerts the user if Accessibility is disabled or if no model is installed yet, preventing fake ungrounded actions.
-              - Conversational responses for greetings and feedback (e.g. "No you didn't") rather than treating every message as an automated phone goal.
-            - **Target Android 14 (API 34)**: Permanent release keystore with full Android 14 compatibility.
-
-            ### ⚠️ How to Setup on Android 13/14 (First Launch):
-            1. **Install APK** and launch NovaClaw AI.
-            2. Tap **"App Info"** on the top yellow banner -> tap the **3 dots `⋮`** in top right -> tap **"Allow restricted settings"** (confirm with PIN/fingerprint).
-            3. Tap **"Enable"** -> toggle **NovaClaw AI** to **ON** in Accessibility Settings.
-            4. Tap **"Install Model"** -> tap **"Download & Install Gemma 4"** (or paste a Gemini API key for instant zero-download testing).
+            ### 🚀 Fixes in v1.0.6:
+            - **⚡ Fixed Google Gemma 4 Download URL**:
+              - The previous Google Hugging Face URL required user login and was gated, causing an immediate 401 Unauthorized (`FAILED 0.0 MB`).
+              - Switched Gemma 4 to the verified public direct endpoint (`bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf`), which downloads unthrottled and ungated without any login prompt!
+            - **Auto-Activate Installed Models**:
+              - When Llama 3.2 or Gemma 4 finishes downloading, NovaClaw automatically detects the file and sets it as the active operational model.
+            - **Retry & Error Recovery**:
+              - Added retry buttons and automatic state reset if an intermittent network error occurs during model download.
 
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.5.apk` below directly to your device.
-          files: dist/NovaClaw-v1.0.5.apk
+            Download `NovaClaw-v1.0.6.apk` below directly to your device.
+          files: dist/NovaClaw-v1.0.6.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

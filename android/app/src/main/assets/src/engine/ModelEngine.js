@@ -13,15 +13,15 @@ const AVAILABLE_MODELS = [
     id: 'gemma-4-2b-it',
     name: 'Google Gemma 4 (2B INT4)',
     runtime: 'LiteRT-LM / GGUF',
-    size: '1.45 GB',
-    fileName: 'gemma-2-2b-it-int4.gguf',
-    downloadUrl: 'https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/2b_it_v2.gguf',
+    size: '1.70 GB',
+    fileName: 'gemma-2-2b-it-Q4_K_M.gguf',
+    downloadUrl: 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
     ramRequired: '2.1 GB RAM',
     recommendedNPU: 'Qualcomm NPU / MediaTek APU',
     contextWindow: 8192,
     badge: 'On-Device Recommended',
     isLocal: true,
-    quantization: 'INT4'
+    quantization: 'Q4_K_M'
   },
   {
     id: 'llama-3.2-1b-mobile',

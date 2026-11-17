@@ -231,7 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (isAndroidNative && window.AndroidBridge.checkModelStatus) {
       try {
-        const gemmaStatus = JSON.parse(window.AndroidBridge.checkModelStatus('gemma-2-2b-it-int4.gguf') || '{}');
+        const gemmaModel = AVAILABLE_MODELS.find(m => m.id === 'gemma-4-2b-it');
+        const gemmaStatus = JSON.parse(window.AndroidBridge.checkModelStatus(gemmaModel.fileName) || '{}');
         if (gemmaStatus.installed) {
           if (gemmaStatusBadge) {
             gemmaStatusBadge.textContent = 'Installed';
@@ -240,11 +241,16 @@ document.addEventListener('DOMContentLoaded', () => {
           if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Active Model (Installed)';
         }
 
-        const llamaStatus = JSON.parse(window.AndroidBridge.checkModelStatus('Llama-3.2-1B-Instruct-Q4_K_M.gguf') || '{}');
+        const llamaModel = AVAILABLE_MODELS.find(m => m.id === 'llama-3.2-1b-mobile');
+        const llamaStatus = JSON.parse(window.AndroidBridge.checkModelStatus(llamaModel.fileName) || '{}');
         if (llamaStatus.installed) {
           if (llamaStatusBadge) {
             llamaStatusBadge.textContent = 'Installed';
             llamaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
+          }
+          if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Active Model (Installed)';
+          if (!gemmaStatus.installed) {
+            modelEngine.setModel('llama-3.2-1b-mobile');
           }
         }
       } catch (e) {
@@ -412,8 +418,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Active Model (Installed)';
         modelEngine.setModel('gemma-4-2b-it');
         refreshStatus();
+      } else if (data.status === 'FAILED') {
+        if (gemmaStatusBadge) {
+          gemmaStatusBadge.textContent = 'Failed';
+          gemmaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-900/60 text-rose-300 border border-rose-700/60';
+        }
+        if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Retry Download Gemma 4';
       }
-    } else if (data.fileName && data.fileName.includes('Llama')) {
+    } else if (data.fileName && (data.fileName.includes('Llama') || data.fileName.includes('llama'))) {
       if (llamaDownloadProgressBox) llamaDownloadProgressBox.classList.remove('hidden');
       if (llamaProgressBar) llamaProgressBar.style.width = `${percent}%`;
       if (llamaProgressText) llamaProgressText.textContent = `${mbSoFar} MB / ${mbTotal} MB (${percent}%)`;
@@ -424,8 +436,15 @@ document.addEventListener('DOMContentLoaded', () => {
           llamaStatusBadge.textContent = 'Installed';
           llamaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
         }
+        if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Active Model (Installed)';
         modelEngine.setModel('llama-3.2-1b-mobile');
         refreshStatus();
+      } else if (data.status === 'FAILED') {
+        if (llamaStatusBadge) {
+          llamaStatusBadge.textContent = 'Failed';
+          llamaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-900/60 text-rose-300 border border-rose-700/60';
+        }
+        if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Retry Download Llama';
       }
     }
   };
