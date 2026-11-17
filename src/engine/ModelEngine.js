@@ -1,14 +1,26 @@
 /**
  * NovaClaw Model Engine & On-Device Runtime Manager
  * 
- * Manages hosting, downloading, and inference for mobile open-source models:
+ * Manages hosting, downloading, and inference for mobile models & agents:
+ * - Google Gemini Flash Cloud Bridge (Zero-storage instant Real LLM Reasoning)
  * - Google Gemma 4 Mobile (2B / 4B INT4 via LiteRT-LM / GGUF)
  * - Meta Llama 3.2 (1B Ultra-Light / 3B Instruct)
  * - Local Termux / Ollama Bridge (http://localhost:11434)
- * - Google Gemini Flash Cloud Bridge (Zero-storage instant execution)
  */
 
 const AVAILABLE_MODELS = [
+  {
+    id: 'api-gemini',
+    name: 'Google Gemini Flash (Real LLM Reasoning)',
+    runtime: 'Direct Cloud REST API',
+    size: '0 MB (Instant)',
+    ramRequired: '0 MB RAM',
+    recommendedNPU: 'Real-Time LLM Tokens',
+    contextWindow: 32768,
+    badge: 'Recommended • Real LLM',
+    isLocal: false,
+    quantization: 'FP16 Cloud'
+  },
   {
     id: 'gemma-4-2b-it',
     name: 'Google Gemma 4 (2B INT4)',
@@ -19,7 +31,7 @@ const AVAILABLE_MODELS = [
     ramRequired: '2.1 GB RAM',
     recommendedNPU: 'Qualcomm NPU / MediaTek APU',
     contextWindow: 8192,
-    badge: 'On-Device Recommended',
+    badge: 'On-Device Weights',
     isLocal: true,
     quantization: 'Q4_K_M'
   },
@@ -41,39 +53,36 @@ const AVAILABLE_MODELS = [
     id: 'local-ollama',
     name: 'Local Termux / Ollama Bridge',
     runtime: 'HTTP http://localhost:11434',
-    size: 'External',
+    size: 'External Server',
     endpointUrl: 'http://localhost:11434',
     ramRequired: 'Phone / LAN Host',
     recommendedNPU: 'Local Network',
     contextWindow: 16384,
-    badge: 'Local Hybrid',
+    badge: 'Local Termux Hybrid',
     isLocal: true,
     quantization: 'Configurable'
-  },
-  {
-    id: 'api-gemini',
-    name: 'Google Gemini Flash (Zero-Storage Bridge)',
-    runtime: 'Direct Cloud REST API',
-    size: '0 MB',
-    ramRequired: '0 MB RAM',
-    recommendedNPU: 'Instant Zero-Download',
-    contextWindow: 32768,
-    badge: 'Instant Testing',
-    isLocal: false,
-    quantization: 'FP16 Cloud'
   }
 ];
 
 class ModelEngine {
   constructor(options = {}) {
-    this.selectedModelId = options.modelId || 'gemma-4-2b-it';
+    this.geminiApiKey = (typeof localStorage !== 'undefined') ? (localStorage.getItem('novaclaw_gemini_key') || '') : '';
+    this.ollamaEndpoint = (typeof localStorage !== 'undefined') ? (localStorage.getItem('novaclaw_ollama_endpoint') || 'http://localhost:11434') : 'http://localhost:11434';
+    
+    // Auto-select Gemini Flash if key is configured, otherwise default to on-device Gemma or option
+    if (options.modelId) {
+      this.selectedModelId = options.modelId;
+    } else if (this.geminiApiKey) {
+      this.selectedModelId = 'api-gemini';
+    } else {
+      this.selectedModelId = 'gemma-4-2b-it';
+    }
+
     this.hardwareBackend = options.hardwareBackend || 'NPU';
     this.temperature = options.temperature || 0.1;
     this.isLoaded = true;
     this.memoryUsageMB = 1840;
     this.tokensPerSecond = 24.8;
-    this.geminiApiKey = (typeof localStorage !== 'undefined') ? (localStorage.getItem('novaclaw_gemini_key') || '') : '';
-    this.ollamaEndpoint = (typeof localStorage !== 'undefined') ? (localStorage.getItem('novaclaw_ollama_endpoint') || 'http://localhost:11434') : 'http://localhost:11434';
   }
 
   getSelectedModel() {
@@ -98,6 +107,9 @@ class ModelEngine {
     this.geminiApiKey = (key || '').trim();
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('novaclaw_gemini_key', this.geminiApiKey);
+    }
+    if (this.geminiApiKey) {
+      this.selectedModelId = 'api-gemini';
     }
   }
 
@@ -147,6 +159,30 @@ class ModelEngine {
   }
 
   /**
+   * Robust JSON extractor from LLM markdown code blocks or raw strings.
+   */
+  _extractJson(text) {
+    if (!text) return null;
+    let clean = text.trim();
+    if (clean.startsWith('```json')) {
+      clean = clean.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+    } else if (clean.startsWith('```')) {
+      clean = clean.replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+    }
+    try {
+      return JSON.parse(clean);
+    } catch (e) {
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          return JSON.parse(match[0]);
+        } catch (e2) {}
+      }
+      throw e;
+    }
+  }
+
+  /**
    * Generates next action step given the user goal, pruned screen elements, and history.
    * Emits Antigravity / Codex style structured reasoning.
    */
@@ -155,43 +191,50 @@ class ModelEngine {
 
     // 1. Guard against conversational non-action inputs
     if (this.isConversationalInput(userGoal)) {
+      const pkg = prunedState.packageName || 'active app';
       return {
-        thought: "User entered conversational feedback or a general greeting rather than a specific phone automation command.",
+        thought: `User provided conversational feedback: "${userGoal}". Reviewing current active screen (${pkg}) without firing ungrounded gestures.`,
         action: "finish",
         isConversational: true,
-        payload: `I noticed your message: "${userGoal}". To operate your phone safely, NovaClaw needs two things: (1) Accessibility Service enabled, and (2) Google Gemma 4 installed or an API key configured. You can give me direct phone tasks like "Open Settings and turn on Battery Saver" or "Open WhatsApp and message Sarah".`
+        payload: `I noticed your message: "${userGoal}". Currently on "${pkg}".\n\n💡 Tip: To run real-time LLM reasoning directly on your screen, tap the ⚡ icon in the header to enter your free Google Gemini API key or connect local Ollama. You can also give me direct commands like "Open Settings and turn on Battery Saver" or "Open WhatsApp".`
       };
     }
 
-    // 2. Guard against missing model weights on real devices
-    if (typeof window !== 'undefined' && window.AndroidBridge && !this.isModelReady(model.id)) {
-      return {
-        thought: `Model ${model.name} is not installed on this device. Halting execution to prevent ungrounded actions.`,
-        action: 'error',
-        needsModelSetup: true,
-        payload: `⚠️ ${model.name} weights are not downloaded yet. Please tap "Install Gemma 4" in the top banner or side drawer (☰) to download the model (1.45 GB) or configure a free Gemini API key for instant zero-download testing.`
-      };
-    }
-
-    // 3. Cloud Gemini API Bridge
+    // 2. Cloud Gemini API Bridge (Real LLM Reasoning)
     if (model.id === 'api-gemini' && this.geminiApiKey) {
       try {
-        return await this._callGeminiApi(userGoal, prunedState, history);
+        const result = await this._callGeminiApi(userGoal, prunedState, history);
+        if (result && result.action) {
+          return result;
+        }
       } catch (err) {
-        console.warn('[NovaClaw ModelEngine] Gemini API error, falling back to local heuristic:', err);
+        console.warn('[NovaClaw ModelEngine] Gemini API error, falling back to local engine:', err);
       }
     }
 
-    // 4. Local Ollama Bridge
+    // 3. Local Ollama Bridge (Termux or LAN)
     if (model.id === 'local-ollama') {
       try {
-        return await this._callOllama(userGoal, prunedState, history);
+        const result = await this._callOllama(userGoal, prunedState, history);
+        if (result && result.action) {
+          return result;
+        }
       } catch (err) {
-        console.warn('[NovaClaw ModelEngine] Ollama bridge error, falling back to local heuristic:', err);
+        console.warn('[NovaClaw ModelEngine] Ollama bridge error, falling back to local engine:', err);
       }
     }
 
-    // 5. Intelligent Dynamic On-Device Inference
+    // 4. Guard against missing model weights on real devices when not using API
+    if (typeof window !== 'undefined' && window.AndroidBridge && !this.isModelReady(model.id)) {
+      return {
+        thought: `Model ${model.name} weights are not present on device. Halting execution to prevent ungrounded actions.`,
+        action: 'error',
+        needsModelSetup: true,
+        payload: `⚠️ ${model.name} weights are not downloaded yet.\n\n👉 Option 1: Tap Model Hub (⚡) and enter a free Google Gemini API key for instant real LLM reasoning with 0 MB download.\n👉 Option 2: Tap "Install Gemma 4" in the top banner to download on-device weights (1.70 GB).`
+      };
+    }
+
+    // 5. Intelligent Dynamic On-Device Semantic Engine
     const response = this._simulateIntelligentInference(userGoal, prunedState, history);
 
     if (onTokenStream) {
@@ -207,20 +250,44 @@ class ModelEngine {
   }
 
   async _callGeminiApi(userGoal, prunedState, history) {
-    const prompt = `You are NovaClaw, an autonomous on-device mobile operator running on Android.
-User Goal: "${userGoal}"
-Current App: "${prunedState.packageName}"
-Visible Interactive Screen Elements:
-${JSON.stringify(prunedState.elements?.map(e => ({ id: e.id, label: e.label, type: e.type, clickable: e.clickable })) || [], null, 2)}
-Recent Actions History:
-${JSON.stringify(history.map(h => (h && h.action) ? h.action : h), null, 2)}
+    const formattedElements = (prunedState.elements || []).map(e => 
+      `[${e.id}] (${e.type || 'element'}) "${e.label || ''}" ${e.clickable ? '[Clickable]' : ''} ${e.editable ? '[Editable]' : ''} ${e.scrollable ? '[Scrollable]' : ''}`
+    ).join('\n') || 'No interactive elements detected.';
 
-Respond with a JSON object matching this exact schema:
+    const formattedHistory = history.map((h, i) => {
+      const act = h.action || h;
+      return `Step ${i + 1}: ${act.type || 'action'} target=[${act.targetId || '-'}] label="${act.label || '-'}" payload="${act.payload || '-'}"`;
+    }).join('\n') || 'None';
+
+    const prompt = `You are NovaClaw, an autonomous on-device mobile AI operator running on Android.
+Your task is to achieve the User Goal by reasoning step-by-step over visible UI elements on the Android phone screen.
+
+User Goal: "${userGoal}"
+Current Foreground Package: "${prunedState.packageName}"
+
+Visible Interactive Screen Elements (Set-of-Marks):
+${formattedElements}
+
+Previous Action History:
+${formattedHistory}
+
+Tactical Instructions:
+1. "thought": Write 1-2 concise sentences of tactical reasoning. Describe what you observe on screen, your current sub-goal, and why you selected this action.
+2. "action": Choose exactly ONE action from:
+   - "click": Tap an element. Set "target_id" to the integer mark ID (e.g. 3).
+   - "type": Input text into an editable element. Set "target_id" to the integer mark ID and "payload" to the text.
+   - "scroll": Scroll screen to reveal hidden items. Set "payload" to "down" or "up".
+   - "launch_app": Launch an app. Set "payload" to the package name (e.g., "com.android.settings", "com.whatsapp", "com.ubereats").
+   - "key_back": Press Android Back button.
+   - "finish": The user's goal has been completely achieved or answered. Set "payload" to a user-facing success summary.
+3. If looking for buried items in Settings (e.g. Battery Saver), prefer tapping the "Search settings" bar and typing the query if the item is not immediately visible!
+
+Respond with ONLY valid JSON matching this schema:
 {
-  "thought": "Brief internal tactical reasoning about the screen",
-  "action": "click|type|scroll|launch_app|key_back|key_home|finish",
-  "target_id": <element_id_or_null>,
-  "payload": <string_or_null>
+  "thought": "<tactical chain-of-thought reasoning>",
+  "action": "click|type|scroll|launch_app|key_back|finish",
+  "target_id": <mark_id_integer_or_null>,
+  "payload": <string_payload_or_null>
 }`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`;
@@ -229,18 +296,37 @@ Respond with a JSON object matching this exact schema:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.1
+        }
       })
     });
 
-    if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Gemini API HTTP ${res.status}: ${errBody.slice(0, 120)}`);
+    }
+
     const data = await res.json();
     const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    return JSON.parse(rawJson);
+    return this._extractJson(rawJson);
   }
 
   async _callOllama(userGoal, prunedState, history) {
-    const prompt = `NovaClaw Mobile Operator. Goal: "${userGoal}". Package: "${prunedState.packageName}". Elements: ${JSON.stringify(prunedState.elements?.map(e => ({ id: e.id, label: e.label })))}. Output JSON: {"thought": "...", "action": "click|type|scroll|launch_app|finish", "target_id": int, "payload": str}`;
+    const formattedElements = (prunedState.elements || []).map(e => 
+      `[${e.id}] (${e.type || 'element'}) "${e.label || ''}"`
+    ).join('\n') || 'No interactive elements detected.';
+
+    const prompt = `NovaClaw Autonomous Mobile Agent.
+User Goal: "${userGoal}"
+Current App: "${prunedState.packageName}"
+Visible Screen Elements:
+${formattedElements}
+
+Output JSON only:
+{"thought": "tactical reasoning", "action": "click|type|scroll|launch_app|key_back|finish", "target_id": int_or_null, "payload": str_or_null}`;
+
     const res = await fetch(`${this.ollamaEndpoint}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -253,7 +339,7 @@ Respond with a JSON object matching this exact schema:
     });
     if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
     const data = await res.json();
-    return JSON.parse(data.response || '{}');
+    return this._extractJson(data.response || '{}');
   }
 
   /**
@@ -449,9 +535,9 @@ Respond with a JSON object matching this exact schema:
 
       // 4. Scroll down Settings list to find Battery
       const scrollCount = history.filter(h => h.type === 'scroll').length;
-      if (scrollCount < 6) {
+      if (scrollCount < 5) {
         return {
-          thought: `Battery option is not yet visible in viewport. Scrolling down (attempt ${scrollCount + 1}/6).`,
+          thought: `Battery option is not yet visible in viewport. Scrolling down (attempt ${scrollCount + 1}/5).`,
           action: 'scroll',
           target_id: null,
           payload: 'down'
@@ -459,10 +545,10 @@ Respond with a JSON object matching this exact schema:
       }
 
       return {
-        thought: `Could not find Battery option after scrolling Settings. Halting to avoid misclicks.`,
+        thought: `Examined visible Settings menu items and scrolled ${scrollCount} times, but Battery Saver could not be located on this OEM skin.`,
         action: 'finish',
         target_id: null,
-        payload: 'Settings opened, but Battery Saver could not be located automatically on your device layout.'
+        payload: 'Settings opened, but Battery Saver could not be located automatically on your device layout. Tip: Tap the Settings search bar directly or enable Google Gemini Flash in Model Hub (⚡) for visual AI reasoning.'
       };
     }
 

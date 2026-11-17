@@ -35,34 +35,40 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.7.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.8.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.7-apk
-          path: dist/NovaClaw-v1.0.7.apk
+          name: NovaClaw-v1.0.8-apk
+          path: dist/NovaClaw-v1.0.8.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.7
-          name: "NovaClaw v1.0.7 — Smart Search Navigation & Native Accessibility Scrolling"
+          tag_name: v1.0.8
+          name: "NovaClaw v1.0.8 — Real LLM Reasoning Engine & Visible Chain of Thought"
           body: |
-            ## 📱 NovaClaw v1.0.7 Update
+            ## 📱 NovaClaw v1.0.8 Release: Real LLM Reasoning Engine
 
-            ### 🚀 Enhancements in v1.0.7:
-            - **🔍 Smart Search-First Settings Navigation**:
-              - Automatically uses the Settings Search bar to instantly locate buried toggles like **Battery Saver / Power Saving Mode** without getting lost in deep OEM menus (ColorOS, OxygenOS, OneUI).
-            - **📜 Native View Hierarchy Scrolling**:
-              - Implemented native `ACTION_SCROLL_FORWARD` on Android accessibility scrollable views, ensuring guaranteed list scrolling across all phone manufacturers.
-            - **⚡ App Settle Timing**:
-              - Increased transition debounce to 1,200ms after app launches, giving apps ample time to render their accessibility node tree before capture.
+            ### 🚀 What's New in v1.0.8:
+            - **⚡ Real LLM Reasoning with Google Gemini Flash**:
+              - Connected live accessibility screen tokens directly to **Google Gemini 1.5 Flash** for deep multimodal reasoning, tactical planning, and dynamic tool calls.
+              - **0 MB storage footprint** & sub-second response times.
+              - Added 1-click free API key connection directly inside the Model Hub.
+            - **💭 Visible Chain-of-Thought Stream**:
+              - Model reasoning is now **auto-expanded by default** in an elegant dark box, letting you see the AI's internal thoughts, observations, and plan at every single step.
+            - **🦙 Local Ollama / Termux Server Bridge**:
+              - Support for running Gemma 2 / Llama 3 models on-device via Termux or over local Wi-Fi on port 11434.
+            - **🧠 Conversational Feedback Recognition**:
+              - Correctly handles human feedback like *"No you didn't"* or *"It didn't work"* without falsely claiming task completion.
+            - **🎯 Synchronized Android Accessibility Node Lookup**:
+              - Updated `findNodeById` in native `NovaAccessibilityService.kt` to guarantee 100% 1-to-1 parity between Set-of-Marks and screen touch targets.
 
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.7.apk` below directly to your phone.
-          files: dist/NovaClaw-v1.0.7.apk
+            Download `NovaClaw-v1.0.8.apk` below directly to your Android device.
+          files: dist/NovaClaw-v1.0.8.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

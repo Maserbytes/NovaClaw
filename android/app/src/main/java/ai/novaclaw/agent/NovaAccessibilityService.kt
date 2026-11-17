@@ -204,13 +204,20 @@ class NovaAccessibilityService : AccessibilityService() {
     }
 
     private fun findNodeById(root: AccessibilityNodeInfo, targetId: Int): AccessibilityNodeInfo? {
-        // Recursive lookup helper
         var current = 1
         var result: AccessibilityNodeInfo? = null
+        val bounds = Rect()
 
         fun search(node: AccessibilityNodeInfo?) {
-            if (node == null || result != null) return
-            if (node.isClickable || node.isEditable) {
+            if (node == null || result != null || !node.isVisibleToUser) return
+
+            node.getBoundsInScreen(bounds)
+            if (bounds.width() <= 10 || bounds.height() <= 10) return
+
+            val label = resolveNodeLabel(node)
+            val isActionable = node.isClickable || node.isEditable || node.isScrollable || node.isCheckable
+
+            if (isActionable || (label.isNotEmpty() && bounds.height() > 20)) {
                 if (current == targetId) {
                     result = node
                     return

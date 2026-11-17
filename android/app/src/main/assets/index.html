@@ -176,14 +176,14 @@
         <div id="setupModelBanner" class="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 text-xs text-purple-200 flex items-start justify-between gap-3 shadow-sm">
           <div class="space-y-1">
             <div class="font-bold flex items-center gap-1.5 text-purple-300">
-              <span>⚡</span> Install Gemma 4 Model
+              <span>⚡</span> Real LLM Reasoning Engine
             </div>
             <p class="text-[11px] text-purple-200/80 leading-relaxed">
-              No on-device AI model installed. Download Google Gemma 4 (LiteRT) to execute autonomous phone tasks locally.
+              Connect Google Gemini Flash for instant real-time screen reasoning (0 MB download), or download on-device Gemma 4.
             </p>
           </div>
           <button id="setupModelBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shrink-0 shadow transition-all">
-            Install Model
+            Set Up LLM
           </button>
         </div>
 
@@ -281,18 +281,85 @@
         <button id="closeModelModalBtn" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <!-- Tabs: Local Models vs Cloud API -->
+      <!-- Tabs: Real LLM Reasoning vs On-Device Weights -->
       <div class="flex rounded-xl bg-[#262626] p-1 mb-3 text-[11px] font-semibold">
-        <button id="tabOnDeviceBtn" class="flex-1 py-1.5 rounded-lg bg-[#333333] text-white transition-all">
-          On-Device Models
+        <button id="tabCloudApiBtn" class="flex-1 py-1.5 rounded-lg bg-[#333333] text-white transition-all">
+          ⚡ Real LLM Reasoning
         </button>
-        <button id="tabCloudApiBtn" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">
-          Cloud / Ollama
+        <button id="tabOnDeviceBtn" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">
+          📦 On-Device Weights
         </button>
       </div>
 
-      <!-- TAB 1: ON-DEVICE MODELS -->
-      <div id="tabOnDeviceContent" class="space-y-3 mb-4">
+      <!-- TAB 1: REAL LLM REASONING (Gemini Flash & Ollama) -->
+      <div id="tabCloudApiContent" class="space-y-3 mb-4">
+        
+        <!-- Gemini Flash Card (Zero Storage, Real Reasoning) -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/60 space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Google Gemini Flash</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 font-normal">Recommended</span>
+              </div>
+              <div class="text-[11px] text-slate-400">Direct Real-Time Screen Reasoning • 0 MB Download</div>
+            </div>
+            <span id="geminiActiveBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+              Not Configured
+            </span>
+          </div>
+          
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            Sends live accessibility screen tokens to Google Gemini to reason step-by-step and autonomously tap buttons.
+          </p>
+
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-[10px]">
+              <span class="text-slate-400">Free Google AI Studio Key:</span>
+              <a href="https://aistudio.google.com/apikey" target="_blank" class="text-purple-400 hover:text-purple-300 underline font-semibold flex items-center gap-0.5">
+                Get Free API Key ↗
+              </a>
+            </div>
+            <div class="flex gap-2">
+              <input 
+                type="password" 
+                id="geminiApiKeyInput" 
+                placeholder="Paste Gemini API Key (AIza...)" 
+                class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              />
+              <button id="saveGeminiKeyBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shrink-0 transition-all">
+                Save & Activate
+              </button>
+            </div>
+          </div>
+          <div id="geminiKeyStatus" class="text-[10px] text-slate-400 font-mono"></div>
+        </div>
+
+        <!-- Local Termux / Ollama Bridge -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2">
+          <div class="font-bold text-white flex items-center gap-1.5">
+            <span>🦙 Local Termux / Ollama Bridge</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Run Gemma 2 / Llama 3 on-device inside Termux or on your PC over local Wi-Fi:
+          </p>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              id="ollamaEndpointInput" 
+              value="http://localhost:11434" 
+              class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+            />
+            <button id="saveOllamaBtn" class="px-3 py-1.5 bg-[#333333] hover:bg-[#3D3D3D] text-white font-bold rounded-xl shrink-0">
+              Connect
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 2: ON-DEVICE WEIGHTS -->
+      <div id="tabOnDeviceContent" class="space-y-3 mb-4 hidden">
         
         <!-- Google Gemma 4 Card -->
         <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/60 space-y-2.5">
@@ -323,7 +390,7 @@
           <!-- Download / Action Button -->
           <button id="downloadGemmaBtn" class="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all">
             <span>⬇️</span>
-            <span id="downloadGemmaBtnText">Download & Install Gemma 4 (1.7 GB)</span>
+            <span id="downloadGemmaBtnText">Download Gemma 4 (1.70 GB)</span>
           </button>
         </div>
 
@@ -356,52 +423,6 @@
             <span>⬇️</span>
             <span id="downloadLlamaBtnText">Download Llama 3.2 (750 MB)</span>
           </button>
-        </div>
-
-      </div>
-
-      <!-- TAB 2: CLOUD API & OLLAMA -->
-      <div id="tabCloudApiContent" class="space-y-3 mb-4 hidden">
-        
-        <!-- Gemini API Key Card (Instant Zero-Download Testing) -->
-        <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/40 space-y-2">
-          <div class="font-bold text-white flex items-center gap-1.5">
-            <span>⚡ Google Gemini Flash (Instant Testing)</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">
-            Test full autonomous phone actions instantly without downloading 1.5 GB. Enter your free Google Gemini API key:
-          </p>
-          <div class="flex gap-2">
-            <input 
-              type="password" 
-              id="geminiApiKeyInput" 
-              placeholder="Paste Gemini API Key (AIza...)" 
-              class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
-            />
-            <button id="saveGeminiKeyBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shrink-0">
-              Save
-            </button>
-          </div>
-          <div id="geminiKeyStatus" class="text-[10px] text-slate-400"></div>
-        </div>
-
-        <!-- Local Ollama Bridge -->
-        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2">
-          <div class="font-bold text-white">Local Termux / Ollama Bridge</div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">
-            Run models via Termux or a local PC on your Wi-Fi network:
-          </p>
-          <div class="flex gap-2">
-            <input 
-              type="text" 
-              id="ollamaEndpointInput" 
-              value="http://localhost:11434" 
-              class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
-            />
-            <button id="saveOllamaBtn" class="px-3 py-1.5 bg-[#333333] hover:bg-[#3D3D3D] text-white font-bold rounded-xl shrink-0">
-              Connect
-            </button>
-          </div>
         </div>
 
       </div>

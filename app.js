@@ -164,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const geminiApiKeyInput = document.getElementById('geminiApiKeyInput');
   const saveGeminiKeyBtn = document.getElementById('saveGeminiKeyBtn');
   const geminiKeyStatus = document.getElementById('geminiKeyStatus');
+  const geminiActiveBadge = document.getElementById('geminiActiveBadge');
   const ollamaEndpointInput = document.getElementById('ollamaEndpointInput');
   const saveOllamaBtn = document.getElementById('saveOllamaBtn');
 
@@ -264,20 +265,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (modelEngine.geminiApiKey) {
-      if (geminiKeyStatus) geminiKeyStatus.textContent = '✓ Gemini API Key Configured (Ready)';
+      if (geminiKeyStatus) geminiKeyStatus.textContent = '✓ Real LLM Reasoning active with Google Gemini Flash';
+      if (geminiActiveBadge) {
+        geminiActiveBadge.textContent = 'Active (Real LLM)';
+        geminiActiveBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
+      }
+    } else {
+      if (geminiActiveBadge) {
+        geminiActiveBadge.textContent = 'Not Configured';
+        geminiActiveBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400';
+      }
     }
 
     // Model Banner on Home Screen
     if (isReady) {
       if (setupModelBanner) setupModelBanner.classList.add('hidden');
-      if (activeModelShortLabel) activeModelShortLabel.textContent = activeModel.name.split(' ')[1] || 'Gemma';
-      if (drawerModelPill) drawerModelPill.textContent = activeModel.name.split(' ')[1] || 'Gemma';
-      if (headerStatusText) headerStatusText.textContent = 'NovaClaw Ready';
+      const shortName = modelEngine.geminiApiKey ? 'Gemini Flash' : (activeModel.name.split(' ')[1] || 'Gemma');
+      if (activeModelShortLabel) activeModelShortLabel.textContent = shortName;
+      if (drawerModelPill) drawerModelPill.textContent = shortName;
+      if (headerStatusText) headerStatusText.textContent = modelEngine.geminiApiKey ? 'NovaClaw (Real LLM)' : 'NovaClaw Ready';
       if (headerStatusDot) headerStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
     } else {
       if (setupModelBanner && isAndroidNative) setupModelBanner.classList.remove('hidden');
-      if (activeModelShortLabel) activeModelShortLabel.textContent = 'Install Model';
-      if (headerStatusText) headerStatusText.textContent = 'Install Gemma 4';
+      if (activeModelShortLabel) activeModelShortLabel.textContent = 'Set Up LLM';
+      if (headerStatusText) headerStatusText.textContent = 'Set Up LLM';
       if (headerStatusDot) headerStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse';
     }
   }
@@ -525,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>💭 Step ${stepIndex} Reasoning</span>
           <span class="text-[9px]">▾</span>
         </div>
-        <div class="thought-drawer hidden">
+        <div class="thought-drawer">
           ${escapeHtml(thoughtText)}
         </div>
       </div>
@@ -590,9 +601,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const summary = document.createElement('div');
     summary.className = 'pt-2 text-xs text-slate-200 leading-relaxed';
     summary.innerHTML = `
-      <div class="p-3 rounded-2xl bg-[#1C1C1E] border border-[#2C2C2E]">
+      <div class="p-3 rounded-2xl bg-[#1C1C1E] border ${res.isConversational ? 'border-purple-800/60' : 'border-[#2C2C2E]'}">
         <div class="font-bold text-white flex items-center gap-1.5 mb-1">
-          <span>✨</span> ${res.isConversational ? 'NovaClaw' : 'Done'}
+          <span>${res.isConversational ? '💬' : '✨'}</span> ${res.isConversational ? 'NovaClaw' : 'Done'}
         </div>
         <div class="text-slate-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(res.summary)}</div>
       </div>
