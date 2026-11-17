@@ -211,6 +211,36 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun deleteModel(fileName: String): Boolean {
+            return try {
+                val file = File(context.getExternalFilesDir("models"), fileName)
+                if (file.exists()) {
+                    file.delete()
+                } else true
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        @JavascriptInterface
+        fun resolveAppPackage(appName: String): String {
+            val pm = packageManager
+            val clean = appName.trim().lowercase()
+            try {
+                val apps = pm.getInstalledApplications(0)
+                for (app in apps) {
+                    val label = pm.getApplicationLabel(app).toString().lowercase()
+                    if (label == clean || label.contains(clean) || clean.contains(label)) {
+                        if (pm.getLaunchIntentForPackage(app.packageName) != null) {
+                            return app.packageName
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+            return ""
+        }
+
+        @JavascriptInterface
         fun cancelDownload(downloadId: Long) {
             try {
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager

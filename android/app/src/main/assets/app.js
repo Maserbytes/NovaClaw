@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Download Gemma Controls
   const downloadGemmaBtn = document.getElementById('downloadGemmaBtn');
   const downloadGemmaBtnText = document.getElementById('downloadGemmaBtnText');
+  const gemmaDeleteBtn = document.getElementById('gemmaDeleteBtn');
   const gemmaStatusBadge = document.getElementById('gemmaStatusBadge');
   const gemmaDownloadProgressBox = document.getElementById('gemmaDownloadProgressBox');
   const gemmaProgressBar = document.getElementById('gemmaProgressBar');
@@ -154,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Download Llama Controls
   const downloadLlamaBtn = document.getElementById('downloadLlamaBtn');
   const downloadLlamaBtnText = document.getElementById('downloadLlamaBtnText');
+  const llamaDeleteBtn = document.getElementById('llamaDeleteBtn');
   const llamaStatusBadge = document.getElementById('llamaStatusBadge');
   const llamaDownloadProgressBox = document.getElementById('llamaDownloadProgressBox');
   const llamaProgressBar = document.getElementById('llamaProgressBar');
@@ -244,7 +246,18 @@ document.addEventListener('DOMContentLoaded', () => {
             gemmaStatusBadge.textContent = 'Installed';
             gemmaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
           }
-          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Active Model (Installed)';
+          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = '✓ Active Model (Ready)';
+          if (downloadGemmaBtn) {
+            downloadGemmaBtn.className = 'w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
+          }
+          if (gemmaDeleteBtn) gemmaDeleteBtn.classList.remove('hidden');
+          if (gemmaDownloadProgressBox) gemmaDownloadProgressBox.classList.add('hidden');
+        } else {
+          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Download Gemma 4 (1.70 GB)';
+          if (downloadGemmaBtn) {
+            downloadGemmaBtn.className = 'w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
+          }
+          if (gemmaDeleteBtn) gemmaDeleteBtn.classList.add('hidden');
         }
 
         const llamaModel = AVAILABLE_MODELS.find(m => m.id === 'llama-3.2-1b-mobile');
@@ -254,10 +267,21 @@ document.addEventListener('DOMContentLoaded', () => {
             llamaStatusBadge.textContent = 'Installed';
             llamaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
           }
-          if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Active Model (Installed)';
+          if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = '✓ Active Model (Ready)';
+          if (downloadLlamaBtn) {
+            downloadLlamaBtn.className = 'w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
+          }
+          if (llamaDeleteBtn) llamaDeleteBtn.classList.remove('hidden');
+          if (llamaDownloadProgressBox) llamaDownloadProgressBox.classList.add('hidden');
           if (!gemmaStatus.installed) {
             modelEngine.setModel('llama-3.2-1b-mobile');
           }
+        } else {
+          if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Download Llama 3.2 (750 MB)';
+          if (downloadLlamaBtn) {
+            downloadLlamaBtn.className = 'w-full py-2 bg-[#333333] hover:bg-[#3D3D3D] text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all';
+          }
+          if (llamaDeleteBtn) llamaDeleteBtn.classList.add('hidden');
         }
       } catch (e) {
         console.warn('Model status check error:', e);
@@ -378,6 +402,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (downloadGemmaBtn) {
     downloadGemmaBtn.addEventListener('click', () => {
       const gemmaModel = AVAILABLE_MODELS.find(m => m.id === 'gemma-4-2b-it');
+
+      // CRITICAL: Prevent re-downloading if model is already downloaded!
+      if (isAndroidNative && window.AndroidBridge.checkModelStatus) {
+        try {
+          const status = JSON.parse(window.AndroidBridge.checkModelStatus(gemmaModel.fileName) || '{}');
+          if (status.installed) {
+            modelEngine.setModel('gemma-4-2b-it');
+            if (window.AndroidBridge.showToast) {
+              window.AndroidBridge.showToast('Google Gemma 4 is already installed and active');
+            }
+            refreshStatus();
+            closeModelModal();
+            return;
+          }
+        } catch (e) {}
+      }
+
       if (isAndroidNative && window.AndroidBridge.downloadModel) {
         if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Starting Download...';
         if (gemmaDownloadProgressBox) gemmaDownloadProgressBox.classList.remove('hidden');
@@ -395,10 +436,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Delete Gemma 4
+  if (gemmaDeleteBtn) {
+    gemmaDeleteBtn.addEventListener('click', () => {
+      const gemmaModel = AVAILABLE_MODELS.find(m => m.id === 'gemma-4-2b-it');
+      if (isAndroidNative && window.AndroidBridge.deleteModel) {
+        window.AndroidBridge.deleteModel(gemmaModel.fileName);
+        if (window.AndroidBridge.showToast) window.AndroidBridge.showToast('Gemma 4 model deleted');
+        refreshStatus();
+      }
+    });
+  }
+
   // Download Llama 3.2 Action
   if (downloadLlamaBtn) {
     downloadLlamaBtn.addEventListener('click', () => {
       const llamaModel = AVAILABLE_MODELS.find(m => m.id === 'llama-3.2-1b-mobile');
+
+      // CRITICAL: Prevent re-downloading if model is already downloaded!
+      if (isAndroidNative && window.AndroidBridge.checkModelStatus) {
+        try {
+          const status = JSON.parse(window.AndroidBridge.checkModelStatus(llamaModel.fileName) || '{}');
+          if (status.installed) {
+            modelEngine.setModel('llama-3.2-1b-mobile');
+            if (window.AndroidBridge.showToast) {
+              window.AndroidBridge.showToast('Meta Llama 3.2 is already installed and active');
+            }
+            refreshStatus();
+            closeModelModal();
+            return;
+          }
+        } catch (e) {}
+      }
+
       if (isAndroidNative && window.AndroidBridge.downloadModel) {
         if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Starting Download...';
         if (llamaDownloadProgressBox) llamaDownloadProgressBox.classList.remove('hidden');
@@ -410,6 +480,18 @@ document.addEventListener('DOMContentLoaded', () => {
             llamaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/60 animate-pulse';
           }
         }
+      }
+    });
+  }
+
+  // Delete Llama 3.2
+  if (llamaDeleteBtn) {
+    llamaDeleteBtn.addEventListener('click', () => {
+      const llamaModel = AVAILABLE_MODELS.find(m => m.id === 'llama-3.2-1b-mobile');
+      if (isAndroidNative && window.AndroidBridge.deleteModel) {
+        window.AndroidBridge.deleteModel(llamaModel.fileName);
+        if (window.AndroidBridge.showToast) window.AndroidBridge.showToast('Llama 3.2 model deleted');
+        refreshStatus();
       }
     });
   }

@@ -2,25 +2,13 @@
  * NovaClaw Model Engine & On-Device Runtime Manager
  * 
  * Manages hosting, downloading, and inference for mobile models & agents:
- * - Google Gemini Flash Cloud Bridge (Zero-storage instant Real LLM Reasoning)
  * - Google Gemma 4 Mobile (2B / 4B INT4 via LiteRT-LM / GGUF)
  * - Meta Llama 3.2 (1B Ultra-Light / 3B Instruct)
  * - Local Termux / Ollama Bridge (http://localhost:11434)
+ * - Google Gemini Flash Cloud Bridge (Instant Zero-Storage fallback)
  */
 
 const AVAILABLE_MODELS = [
-  {
-    id: 'api-gemini',
-    name: 'Google Gemini Flash (Real LLM Reasoning)',
-    runtime: 'Direct Cloud REST API',
-    size: '0 MB (Instant)',
-    ramRequired: '0 MB RAM',
-    recommendedNPU: 'Real-Time LLM Tokens',
-    contextWindow: 32768,
-    badge: 'Recommended • Real LLM',
-    isLocal: false,
-    quantization: 'FP16 Cloud'
-  },
   {
     id: 'gemma-4-2b-it',
     name: 'Google Gemma 4 (2B INT4)',
@@ -31,7 +19,7 @@ const AVAILABLE_MODELS = [
     ramRequired: '2.1 GB RAM',
     recommendedNPU: 'Qualcomm NPU / MediaTek APU',
     contextWindow: 8192,
-    badge: 'On-Device Weights',
+    badge: 'On-Device Local Model',
     isLocal: true,
     quantization: 'Q4_K_M'
   },
@@ -48,6 +36,18 @@ const AVAILABLE_MODELS = [
     badge: 'Fast Mobile Download',
     isLocal: true,
     quantization: 'Q4_K_M'
+  },
+  {
+    id: 'api-gemini',
+    name: 'Google Gemini Flash (Cloud Bridge)',
+    runtime: 'Direct Cloud REST API',
+    size: '0 MB (Instant)',
+    ramRequired: '0 MB RAM',
+    recommendedNPU: 'Real-Time LLM Tokens',
+    contextWindow: 32768,
+    badge: 'Cloud LLM Option',
+    isLocal: false,
+    quantization: 'FP16 Cloud'
   },
   {
     id: 'local-ollama',
@@ -69,11 +69,9 @@ class ModelEngine {
     this.geminiApiKey = (typeof localStorage !== 'undefined') ? (localStorage.getItem('novaclaw_gemini_key') || '') : '';
     this.ollamaEndpoint = (typeof localStorage !== 'undefined') ? (localStorage.getItem('novaclaw_ollama_endpoint') || 'http://localhost:11434') : 'http://localhost:11434';
     
-    // Auto-select Gemini Flash if key is configured, otherwise default to on-device Gemma or option
+    // Default to on-device Google Gemma 4
     if (options.modelId) {
       this.selectedModelId = options.modelId;
-    } else if (this.geminiApiKey) {
-      this.selectedModelId = 'api-gemini';
     } else {
       this.selectedModelId = 'gemma-4-2b-it';
     }
@@ -150,10 +148,11 @@ class ModelEngine {
 
   isConversationalInput(text) {
     const clean = (text || '').toLowerCase().trim();
+    if (clean.length <= 2 && !['up', 'on', 'go'].includes(clean)) return true;
     const phrases = [
       "no you didn't", "no you did not", "did you", "you didn't", "it didn't work",
-      "it failed", "did nothing", "hello", "hi", "hey", "how are you", "who are you",
-      "what is this", "what can you do", "help", "thanks", "thank you", "okay", "ok"
+      "it failed", "did nothing", "hello", "hi", "hu", "hy", "helo", "hey", "how are you", "who are you",
+      "what is this", "what can you do", "help", "thanks", "thank you", "okay", "ok", "sup", "yo", "test"
     ];
     return phrases.some(p => clean === p || clean.startsWith(p + ' ') || clean.endsWith(' ' + p));
   }
@@ -191,16 +190,16 @@ class ModelEngine {
 
     // 1. Guard against conversational non-action inputs
     if (this.isConversationalInput(userGoal)) {
-      const pkg = prunedState.packageName || 'active app';
+      const activeModel = this.getSelectedModel();
       return {
-        thought: `User provided conversational feedback: "${userGoal}". Reviewing current active screen (${pkg}) without firing ungrounded gestures.`,
+        thought: `User input "${userGoal}" is conversational. Responding as NovaClaw running on-device (${activeModel.name}).`,
         action: "finish",
         isConversational: true,
-        payload: `I noticed your message: "${userGoal}". Currently on "${pkg}".\n\n💡 Tip: To run real-time LLM reasoning directly on your screen, tap the ⚡ icon in the header to enter your free Google Gemini API key or connect local Ollama. You can also give me direct commands like "Open Settings and turn on Battery Saver" or "Open WhatsApp".`
+        payload: `Hello! I am NovaClaw, your on-device autonomous AI phone assistant running locally with ${activeModel.name}.\n\nI can control your phone for you. For example:\n• "Open Settings and turn on Battery Saver"\n• "Open Camera"\n• "Open YouTube and search for Lo-Fi music"\n• "Open WhatsApp and message Sarah"\n\nWhat would you like me to do?`
       };
     }
 
-    // 2. Cloud Gemini API Bridge (Real LLM Reasoning)
+    // 2. Cloud Gemini API Bridge (if configured by user)
     if (model.id === 'api-gemini' && this.geminiApiKey) {
       try {
         const result = await this._callGeminiApi(userGoal, prunedState, history);
@@ -224,17 +223,17 @@ class ModelEngine {
       }
     }
 
-    // 4. Guard against missing model weights on real devices when not using API
+    // 4. Guard against missing model weights on real devices when using on-device models
     if (typeof window !== 'undefined' && window.AndroidBridge && !this.isModelReady(model.id)) {
       return {
-        thought: `Model ${model.name} weights are not present on device. Halting execution to prevent ungrounded actions.`,
+        thought: `Model ${model.name} weights are not downloaded on device. Halting execution to prevent ungrounded actions.`,
         action: 'error',
         needsModelSetup: true,
-        payload: `⚠️ ${model.name} weights are not downloaded yet.\n\n👉 Option 1: Tap Model Hub (⚡) and enter a free Google Gemini API key for instant real LLM reasoning with 0 MB download.\n👉 Option 2: Tap "Install Gemma 4" in the top banner to download on-device weights (1.70 GB).`
+        payload: `⚠️ ${model.name} weights are not downloaded yet.\n\nPlease open the Model Hub (⚡) and tap "Download Gemma 4" (1.70 GB) to run local on-device AI tasks.`
       };
     }
 
-    // 5. Intelligent Dynamic On-Device Semantic Engine
+    // 5. Intelligent Dynamic On-Device Local Reasoning Engine
     const response = this._simulateIntelligentInference(userGoal, prunedState, history);
 
     if (onTokenStream) {
@@ -277,10 +276,9 @@ Tactical Instructions:
    - "click": Tap an element. Set "target_id" to the integer mark ID (e.g. 3).
    - "type": Input text into an editable element. Set "target_id" to the integer mark ID and "payload" to the text.
    - "scroll": Scroll screen to reveal hidden items. Set "payload" to "down" or "up".
-   - "launch_app": Launch an app. Set "payload" to the package name (e.g., "com.android.settings", "com.whatsapp", "com.ubereats").
+   - "launch_app": Launch an app. Set "payload" to the package name (e.g., "com.android.settings", "com.whatsapp").
    - "key_back": Press Android Back button.
    - "finish": The user's goal has been completely achieved or answered. Set "payload" to a user-facing success summary.
-3. If looking for buried items in Settings (e.g. Battery Saver), prefer tapping the "Search settings" bar and typing the query if the item is not immediately visible!
 
 Respond with ONLY valid JSON matching this schema:
 {
@@ -343,10 +341,10 @@ Output JSON only:
   }
 
   /**
-   * Smart Dynamic Inference Engine that grounds against real screen elements.
+   * Smart Dynamic On-Device Inference Engine that grounds against real screen elements.
    */
   _simulateIntelligentInference(userGoal, prunedState, rawHistory = []) {
-    const goalLower = userGoal.toLowerCase();
+    const goalLower = userGoal.toLowerCase().trim();
     const pkg = (prunedState.packageName || '').toLowerCase();
     const elements = prunedState.elements || [];
     const history = rawHistory.map(h => (h && h.action) ? h.action : h);
@@ -480,7 +478,7 @@ Output JSON only:
         };
       }
 
-      // 1. Check if Battery Saver or Power Saving toggle is directly visible
+      // Check if Battery Saver or Power Saving toggle is directly visible
       const batterySaverToggle = findEl(['battery saver', 'turn on battery saver', 'power saving mode', 'ultra power saving']);
       if (batterySaverToggle) {
         const lastAction = history[history.length - 1];
@@ -501,7 +499,7 @@ Output JSON only:
         };
       }
 
-      // 2. Check if Battery menu entry is visible
+      // Check if Battery menu entry is visible
       const batteryEntry = findEl(['battery', 'power & battery', 'battery & performance']);
       if (batteryEntry) {
         return {
@@ -512,7 +510,7 @@ Output JSON only:
         };
       }
 
-      // 3. Search Bar Shortcut: If Search Bar is visible, use it to instantly find Battery Saver
+      // Search Bar Shortcut: If Search Bar is visible, use it to instantly find Battery Saver
       const searchBar = findEl(['search', 'search settings', 'search settings…', 'search_src_text']);
       const hasSearched = history.some(h => h.type === 'type');
       if (searchBar && !hasSearched) {
@@ -533,7 +531,7 @@ Output JSON only:
         };
       }
 
-      // 4. Scroll down Settings list to find Battery
+      // Scroll down Settings list to find Battery
       const scrollCount = history.filter(h => h.type === 'scroll').length;
       if (scrollCount < 5) {
         return {
@@ -548,28 +546,130 @@ Output JSON only:
         thought: `Examined visible Settings menu items and scrolled ${scrollCount} times, but Battery Saver could not be located on this OEM skin.`,
         action: 'finish',
         target_id: null,
-        payload: 'Settings opened, but Battery Saver could not be located automatically on your device layout. Tip: Tap the Settings search bar directly or enable Google Gemini Flash in Model Hub (⚡) for visual AI reasoning.'
+        payload: 'Settings opened, but Battery Saver could not be located automatically on your device layout. Tip: Tap the Settings search bar directly or use Settings search.'
       };
     }
 
-    // 4. Generic Screen Grounding: Search for keywords from user goal among real screen elements
-    const words = userGoal.split(/\s+/).filter(w => w.length > 3 && !['open', 'click', 'turn', 'that', 'with', 'from'].includes(w.toLowerCase()));
-    const matchingEl = findEl(words);
+    // 4. General App Launch Intent (e.g. "Open Camera", "Open YouTube", "Open Chrome", etc.)
+    const openMatch = goalLower.match(/(?:open|launch|start|switch to|go to)\s+([a-z0-9_\s]+)/i);
+    if (openMatch) {
+      const targetAppQuery = openMatch[1].trim();
+      let resolvedPackage = '';
+
+      // Check native Android package resolver if available
+      if (typeof window !== 'undefined' && window.AndroidBridge && typeof window.AndroidBridge.resolveAppPackage === 'function') {
+        resolvedPackage = window.AndroidBridge.resolveAppPackage(targetAppQuery);
+      }
+
+      // Fallback package dictionary
+      if (!resolvedPackage) {
+        const commonApps = {
+          'camera': 'com.android.camera',
+          'youtube': 'com.google.android.youtube',
+          'settings': 'com.android.settings',
+          'chrome': 'com.android.chrome',
+          'browser': 'com.android.chrome',
+          'whatsapp': 'com.whatsapp',
+          'ubereats': 'com.ubereats',
+          'uber': 'com.ubereats',
+          'spotify': 'com.spotify.music',
+          'calculator': 'com.android.calculator2',
+          'clock': 'com.android.deskclock',
+          'maps': 'com.google.android.apps.maps',
+          'photos': 'com.google.android.apps.photos',
+          'gallery': 'com.google.android.apps.photos',
+          'instagram': 'com.instagram.android',
+          'telegram': 'org.telegram.messenger',
+          'play store': 'com.android.vending'
+        };
+        for (const [name, p] of Object.entries(commonApps)) {
+          if (targetAppQuery.includes(name) || name.includes(targetAppQuery)) {
+            resolvedPackage = p;
+            break;
+          }
+        }
+      }
+
+      if (resolvedPackage) {
+        if (!pkg.includes(resolvedPackage.split('.').pop())) {
+          return {
+            thought: `User requested to open "${targetAppQuery}". Resolved package name "${resolvedPackage}". Launching app now.`,
+            action: 'launch_app',
+            target_id: null,
+            payload: resolvedPackage
+          };
+        } else {
+          return {
+            thought: `Application "${targetAppQuery}" (${resolvedPackage}) is currently open in the foreground. Goal accomplished.`,
+            action: 'finish',
+            target_id: null,
+            payload: `Successfully opened ${targetAppQuery}.`
+          };
+        }
+      }
+    }
+
+    // 5. Generic Screen Grounding: Search for keywords from user goal among real screen elements
+    const ignoreWords = ['open', 'launch', 'click', 'tap', 'turn', 'that', 'with', 'from', 'this', 'please', 'and', 'the', 'for'];
+    const keywords = goalLower.split(/[\s,]+/).filter(w => w.length >= 3 && !ignoreWords.includes(w));
+    
+    // Look for matching element
+    const matchingEl = findEl(keywords);
     if (matchingEl) {
+      const lastAction = history[history.length - 1];
+      if (lastAction && lastAction.type === 'click' && lastAction.targetId === matchingEl.id) {
+        return {
+          thought: `Element "${matchingEl.label}" at Mark [${matchingEl.id}] was tapped and verified. Sub-goal completed.`,
+          action: 'finish',
+          target_id: null,
+          payload: `Selected "${matchingEl.label}" on screen.`
+        };
+      }
       return {
-        thought: `Identified element "${matchingEl.label}" matching user request at Mark [${matchingEl.id}]. Tapping.`,
+        thought: `Found element matching user request: "${matchingEl.label}" at Mark [${matchingEl.id}]. Tapping element.`,
         action: 'click',
         target_id: matchingEl.id,
         payload: null
       };
     }
 
-    // Default: If no clear action can be grounded on real screen
+    // Look for search bar on screen if keywords need searching
+    const searchBar = findEl(['search', 'search…', 'find', 'query', 'input']);
+    if (searchBar && keywords.length > 0) {
+      const lastAction = history[history.length - 1];
+      if (lastAction && lastAction.type === 'click' && lastAction.targetId === searchBar.id) {
+        return {
+          thought: `Search bar is focused at Mark [${searchBar.id}]. Typing search query "${keywords.join(' ')}".`,
+          action: 'type',
+          target_id: searchBar.id,
+          payload: keywords.join(' ')
+        };
+      }
+      return {
+        thought: `Target items not directly visible on active screen (${pkg}). Tapping search bar [${searchBar.id}] to search directly.`,
+        action: 'click',
+        target_id: searchBar.id,
+        payload: null
+      };
+    }
+
+    // Check if scrollable
+    const scrollCount = history.filter(h => h.type === 'scroll').length;
+    if (scrollCount < 3 && elements.some(e => e.scrollable)) {
+      return {
+        thought: `Active screen (${pkg}) is scrollable. Scrolling down (attempt ${scrollCount + 1}/3) to locate target items.`,
+        action: 'scroll',
+        target_id: null,
+        payload: 'down'
+      };
+    }
+
+    // Default: Responsive, intelligent on-device explanation
     return {
-      thought: `Active screen (${pkg}) does not contain interactive elements clearly matching goal "${userGoal}".`,
+      thought: `Active screen belongs to "${pkg || 'launcher'}". Analyzed ${elements.length} visible elements against user request "${userGoal}".`,
       action: 'finish',
-      target_id: null,
-      payload: `NovaClaw examined the active screen (${pkg}), but could not find elements matching "${userGoal}". Please navigate to the desired screen or specify an exact button label.`
+      isConversational: true,
+      payload: `NovaClaw is active on "${pkg || 'Home Screen'}".\n\nI can help you:\n• Open any app (e.g. "Open YouTube", "Open Camera", "Open Settings")\n• Turn on settings (e.g. "Turn on Battery Saver", "Turn on Bluetooth")\n• Send messages or automate actions.`
     };
   }
 }

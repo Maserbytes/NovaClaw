@@ -104,6 +104,24 @@ async function runAllTests() {
   assert(inferenceResult.action === 'click', 'Model correctly decided to click contact');
   assert(inferenceResult.target_id === 7, 'Model correctly targeted Sarah Jenkins mark [7]');
 
+  // Test 4b: Conversational Greeting ("Hu" / "Hi") handled gracefully on-device
+  const huResult = await modelEngine.generateActionStep({
+    userGoal: "Hu",
+    prunedState: { packageName: 'com.android.launcher3', elements: [] },
+    history: []
+  });
+  assert(huResult.isConversational === true, 'Model correctly recognized "Hu" as on-device greeting');
+  assert(huResult.payload.includes('NovaClaw'), 'Model introduced itself friendly without error');
+
+  // Test 4c: Generic App Launching ("Open Camera")
+  const cameraResult = await modelEngine.generateActionStep({
+    userGoal: "Open Camera",
+    prunedState: { packageName: 'com.android.launcher3', elements: [] },
+    history: []
+  });
+  assert(cameraResult.action === 'launch_app', 'Model correctly determined launch_app action');
+  assert(cameraResult.payload.includes('camera'), 'Model targeted camera package');
+
   // TEST 5: Full End-to-End Agent Loop Simulation
   console.log('\n--- TEST GROUP 5: Autonomous End-to-End Agent Loop ---');
   

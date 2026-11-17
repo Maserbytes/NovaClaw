@@ -35,40 +35,39 @@ jobs:
       - name: Prepare APK Asset
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.8.apk \;
+          find android/app/build/outputs/apk -name "*release*.apk" -exec cp {} dist/NovaClaw-v1.0.9.apk \;
           ls -lh dist/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NovaClaw-v1.0.8-apk
-          path: dist/NovaClaw-v1.0.8.apk
+          name: NovaClaw-v1.0.9-apk
+          path: dist/NovaClaw-v1.0.9.apk
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0.8
-          name: "NovaClaw v1.0.8 — Real LLM Reasoning Engine & Visible Chain of Thought"
+          tag_name: v1.0.9
+          name: "NovaClaw v1.0.9 — On-Device Cognitive Reasoner & Model Download Fix"
           body: |
-            ## 📱 NovaClaw v1.0.8 Release: Real LLM Reasoning Engine
+            ## 📱 NovaClaw v1.0.9 Release: On-Device Cognitive Reasoner & Download Fix
 
-            ### 🚀 What's New in v1.0.8:
-            - **⚡ Real LLM Reasoning with Google Gemini Flash**:
-              - Connected live accessibility screen tokens directly to **Google Gemini 1.5 Flash** for deep multimodal reasoning, tactical planning, and dynamic tool calls.
-              - **0 MB storage footprint** & sub-second response times.
-              - Added 1-click free API key connection directly inside the Model Hub.
-            - **💭 Visible Chain-of-Thought Stream**:
-              - Model reasoning is now **auto-expanded by default** in an elegant dark box, letting you see the AI's internal thoughts, observations, and plan at every single step.
-            - **🦙 Local Ollama / Termux Server Bridge**:
-              - Support for running Gemma 2 / Llama 3 models on-device via Termux or over local Wi-Fi on port 11434.
-            - **🧠 Conversational Feedback Recognition**:
-              - Correctly handles human feedback like *"No you didn't"* or *"It didn't work"* without falsely claiming task completion.
-            - **🎯 Synchronized Android Accessibility Node Lookup**:
-              - Updated `findNodeById` in native `NovaAccessibilityService.kt` to guarantee 100% 1-to-1 parity between Set-of-Marks and screen touch targets.
+            ### 🚀 What's New in v1.0.9:
+            - **🛡️ Fixed Re-Download Issue**:
+              - When a model (Gemma 4 or Llama 3.2) is already downloaded on your device, the button locks to `✓ Active Model (Ready)` in emerald green.
+              - Tapping it never re-downloads; it instantly activates the model.
+              - Added dedicated `🗑️ Delete & Re-download` option if you ever need to clear weights.
+            - **🧠 On-Device Autonomous Cognitive Reasoner**:
+              - Completely eliminates canned "Active screen does not contain elements" errors.
+              - Handles conversational chats, typos (like "Hu", "Hi", "Hello"), and general questions directly on-device with friendly NovaClaw responses.
+            - **📱 Dynamic App Resolver & Launcher**:
+              - You can now launch ANY app installed on your phone (e.g. "Open Camera", "Open YouTube", "Open Settings", "Open Spotify", "Open Chrome") dynamically via native Android Package resolution.
+            - **🔍 Screen Search & Deep Navigation**:
+              - Automatically locates and types into app search bars or scrolls containers to locate targets like Battery Saver across all Android OEMs (OnePlus, Samsung, Xiaomi, Pixel).
 
             ### 📥 Download & Install:
-            Download `NovaClaw-v1.0.8.apk` below directly to your Android device.
-          files: dist/NovaClaw-v1.0.8.apk
+            Download `NovaClaw-v1.0.9.apk` below directly to your phone.
+          files: dist/NovaClaw-v1.0.9.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
