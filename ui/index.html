@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NovaClaw</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0D0D0D] text-[#ECECEC] antialiased min-h-screen flex flex-col overflow-x-hidden selection:bg-purple-900">
+
+  <!-- ======================================================== -->
+  <!-- SIDE DRAWER OVERLAY & MENU (ChatGPT Style)               -->
+  <!-- ======================================================== -->
+  <div id="drawerBackdrop" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden transition-opacity duration-300"></div>
+
+  <aside id="sideDrawer" class="fixed top-0 left-0 bottom-0 z-50 w-[290px] max-w-[85vw] bg-[#171717] border-r border-[#262626] flex flex-col -translate-x-full transition-transform duration-300 ease-out shadow-2xl">
+    
+    <!-- Drawer Header -->
+    <div class="p-4 pt-5 pb-3 flex items-center justify-between border-b border-[#262626]/80">
+      <div class="flex items-center gap-2">
+        <span class="text-lg font-bold text-white tracking-tight">NovaClaw</span>
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-700/50" id="drawerModelPill">Gemma 4</span>
+      </div>
+      <button id="closeDrawerBtn" class="w-8 h-8 rounded-full bg-[#262626] hover:bg-[#333333] text-slate-300 flex items-center justify-center text-sm transition-all">
+        ✕
+      </button>
+    </div>
+
+    <!-- Drawer Navigation List -->
+    <div class="flex-1 overflow-y-auto p-3 space-y-1 text-sm font-medium">
+      
+      <!-- Accessibility Service Status & Action -->
+      <button id="drawerA11yBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">📱</span>
+          <span>Accessibility Service</span>
+        </div>
+        <span id="drawerA11yBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-700/60">
+          Setup
+        </span>
+      </button>
+
+      <!-- App Info (For Android 14 Restricted Settings) -->
+      <button id="drawerAppInfoBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">⚙️</span>
+          <span>App Info (3-dots)</span>
+        </div>
+        <span class="text-[10px] text-slate-400">Settings</span>
+      </button>
+
+      <!-- Model Hub & Downloader -->
+      <button id="drawerModelBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-purple-400">⚡</span>
+          <span>Install Gemma 4 / Hub</span>
+        </div>
+        <span class="text-[10px] text-purple-400 font-mono font-bold" id="activeModelShortLabel">Install</span>
+      </button>
+
+      <!-- Floating Kill-Switch Pill Status & Action -->
+      <button id="drawerOverlayBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">🪟</span>
+          <span>Floating Kill-Switch</span>
+        </div>
+        <span id="drawerOverlayBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+          Overlay
+        </span>
+      </button>
+
+      <!-- Safety Shield -->
+      <button id="drawerSafetyBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
+        <div class="flex items-center gap-3">
+          <span class="text-base text-slate-400 group-hover:text-white">🛡️</span>
+          <span>Quad-Shield Safety</span>
+        </div>
+        <span class="text-[10px] text-emerald-400 font-semibold">Active</span>
+      </button>
+
+      <div class="pt-3 pb-1">
+        <hr class="border-[#262626]">
+      </div>
+
+      <!-- Recent Tasks Header -->
+      <div class="px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        Sample Tasks
+      </div>
+
+      <!-- Recent Task Items -->
+      <div id="recentTasksList" class="space-y-0.5">
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open Settings and turn on Battery Saver">
+          🔋 Settings: Turn on Battery Saver
+        </button>
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
+          💬 WhatsApp: Message Sarah
+        </button>
+        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open Uber Eats and search for iced latte">
+          ☕ Uber Eats: Iced Latte Order
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Drawer Footer (ChatGPT Style) -->
+    <div class="p-3 border-t border-[#262626] flex items-center justify-between gap-2">
+      <button id="drawerNewChatBtn" class="flex-1 py-2 px-3 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow transition-all">
+        <span>✎</span>
+        <span>New chat</span>
+      </button>
+
+      <div class="w-9 h-9 rounded-full bg-[#262626] border border-[#333333] text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
+        MB
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ======================================================== -->
+  <!-- MAIN SCREEN HEADER (Clean, 2 Icon Buttons like ChatGPT)  -->
+  <!-- ======================================================== -->
+  <header class="sticky top-0 z-20 px-4 py-3 flex items-center justify-between bg-[#0D0D0D]">
+    <!-- Left Hamburger Menu Button (Circle) -->
+    <button id="openDrawerBtn" class="w-10 h-10 rounded-full bg-[#212121] hover:bg-[#2A2A2A] text-white flex items-center justify-center transition-all shadow-sm">
+      <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <!-- Center Tiny Status Pill -->
+    <div id="topStatusIndicator" class="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 opacity-90 cursor-pointer">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" id="headerStatusDot"></span>
+      <span id="headerStatusText">NovaClaw Ready</span>
+    </div>
+
+    <!-- Right Compose / New Chat Button (Circle) -->
+    <button id="topNewChatBtn" class="w-10 h-10 rounded-full bg-[#212121] hover:bg-[#2A2A2A] text-white flex items-center justify-center transition-all shadow-sm" title="New Chat">
+      <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+    </button>
+  </header>
+
+  <!-- ======================================================== -->
+  <!-- CHAT CONVERSATION VIEWPORT                               -->
+  <!-- ======================================================== -->
+  <main id="chatViewport" class="flex-1 overflow-y-auto px-4 py-2 flex flex-col justify-end max-w-xl mx-auto w-full">
+    
+    <!-- Home Empty State: "Where should we start?" (Exact ChatGPT style) -->
+    <div id="homePromptSection" class="pb-6 pt-6 text-left space-y-5">
+      
+      <!-- Setup & Permission Warning Banners -->
+      <div id="setupBannersContainer" class="space-y-3">
+        
+        <!-- Accessibility Alert Banner -->
+        <div id="setupAccessibilityBanner" class="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-800/60 text-xs text-amber-200 flex items-start justify-between gap-3 shadow-sm hidden">
+          <div class="space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-300">
+              <span>⚠️</span> Accessibility Required
+            </div>
+            <p class="text-[11px] text-amber-200/80 leading-relaxed">
+              NovaClaw needs Accessibility access to view your screen and tap buttons safely.
+            </p>
+            <div class="text-[10px] text-amber-300/80 pt-0.5">
+              💡 <em>On Android 14: If grayed out, open App Info → 3-dots → "Allow restricted settings" first.</em>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5 shrink-0">
+            <button id="setupA11yBtn" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl shadow transition-all">
+              Enable
+            </button>
+            <button id="openAppInfoBtn" class="px-2 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-800/60 text-amber-300 font-medium text-[10px] rounded-lg transition-all text-center">
+              App Info
+            </button>
+          </div>
+        </div>
+
+        <!-- Model Setup Banner -->
+        <div id="setupModelBanner" class="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 text-xs text-purple-200 flex items-start justify-between gap-3 shadow-sm">
+          <div class="space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-purple-300">
+              <span>⚡</span> Real LLM Reasoning Engine
+            </div>
+            <p class="text-[11px] text-purple-200/80 leading-relaxed">
+              Connect Google Gemini Flash for instant real-time screen reasoning (0 MB download), or download on-device Gemma 4.
+            </p>
+          </div>
+          <button id="setupModelBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shrink-0 shadow transition-all">
+            Set Up LLM
+          </button>
+        </div>
+
+      </div>
+
+      <h1 class="text-2xl sm:text-3xl font-normal text-white tracking-tight pt-2">
+        Where should we start?
+      </h1>
+
+      <div class="space-y-3">
+        <!-- Suggestion 1 -->
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Settings and turn on Battery Saver">
+          <span class="text-xl">🔋</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Turn on Battery Saver in Settings</span>
+        </button>
+
+        <!-- Suggestion 2 -->
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
+          <span class="text-xl">💬</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Send message to Sarah on WhatsApp</span>
+        </button>
+
+        <!-- Suggestion 3 -->
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Uber Eats and search for iced latte">
+          <span class="text-xl">☕</span>
+          <span class="text-sm text-slate-300 group-hover:text-white">Order iced latte on Uber Eats</span>
+        </button>
+
+        <!-- Suggestion 4 -->
+        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Bank Wallet and delete all bank accounts">
+          <span class="text-xl">🛡️</span>
+          <span class="text-sm text-rose-400 group-hover:text-rose-300">Test Quad-Shield Safety Interceptor</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Message Stream (Appears once conversation starts) -->
+    <div id="messageStream" class="space-y-4 w-full"></div>
+
+  </main>
+
+  <!-- Execution Progress Subtitle (Appears during automated actions) -->
+  <div id="executionStatusBar" class="hidden px-4 py-2 bg-[#1A1A1A] border-t border-[#262626] text-xs text-slate-300 flex items-center justify-between max-w-xl mx-auto w-full">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+      <span id="agentStateLabel">Thinking...</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="stepCounterLabel" class="text-slate-400 font-mono text-[11px]">Step 1/15</span>
+      <button id="stopExecutionBtn" class="px-2.5 py-0.5 rounded bg-rose-600/80 hover:bg-rose-600 text-white text-[10px] font-bold">
+        Stop
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- BOTTOM INPUT BAR (Exact ChatGPT Mobile Rounded Pill)     -->
+  <!-- ======================================================== -->
+  <footer class="p-3 pb-5 bg-[#0D0D0D]">
+    <div class="max-w-xl mx-auto">
+      <form id="chatForm" class="flex items-center gap-2 bg-[#212121] rounded-full px-3.5 py-1.5 shadow-lg border border-[#2E2E2E] focus-within:border-slate-500 transition-all">
+        
+        <!-- Plus / Action Icon -->
+        <button type="button" id="inputPlusBtn" class="text-slate-400 hover:text-white text-lg font-light shrink-0 px-1">
+          +
+        </button>
+
+        <!-- Text Input -->
+        <input 
+          type="text" 
+          id="chatInput" 
+          placeholder="Ask NovaClaw" 
+          class="flex-1 bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none min-w-0"
+          autocomplete="off"
+        />
+
+        <!-- Right Side: Send / Waveform Icon (Blue Pill like ChatGPT) -->
+        <button type="submit" id="sendActionBtn" class="w-8 h-8 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center shrink-0 shadow-md transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+    </div>
+  </footer>
+
+  <!-- ======================================================== -->
+  <!-- MODEL HUB & DOWNLOADER MODAL (Clean Dark Modal)           -->
+  <!-- ======================================================== -->
+  <div id="modelModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#1C1C1E] border border-[#2C2C2E] rounded-3xl max-w-sm w-full p-5 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-[#2C2C2E] mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-base text-purple-400">⚡</span>
+          <h3 class="text-sm font-bold text-white">Model Hub & Downloader</h3>
+        </div>
+        <button id="closeModelModalBtn" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <!-- Tabs: Real LLM Reasoning vs On-Device Weights -->
+      <div class="flex rounded-xl bg-[#262626] p-1 mb-3 text-[11px] font-semibold">
+        <button id="tabCloudApiBtn" class="flex-1 py-1.5 rounded-lg bg-[#333333] text-white transition-all">
+          ⚡ Real LLM Reasoning
+        </button>
+        <button id="tabOnDeviceBtn" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">
+          📦 On-Device Weights
+        </button>
+      </div>
+
+      <!-- TAB 1: REAL LLM REASONING (Gemini Flash & Ollama) -->
+      <div id="tabCloudApiContent" class="space-y-3 mb-4">
+        
+        <!-- Gemini Flash Card (Zero Storage, Real Reasoning) -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/60 space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Google Gemini Flash</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 font-normal">Recommended</span>
+              </div>
+              <div class="text-[11px] text-slate-400">Direct Real-Time Screen Reasoning • 0 MB Download</div>
+            </div>
+            <span id="geminiActiveBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+              Not Configured
+            </span>
+          </div>
+          
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            Sends live accessibility screen tokens to Google Gemini to reason step-by-step and autonomously tap buttons.
+          </p>
+
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-[10px]">
+              <span class="text-slate-400">Free Google AI Studio Key:</span>
+              <a href="https://aistudio.google.com/apikey" target="_blank" class="text-purple-400 hover:text-purple-300 underline font-semibold flex items-center gap-0.5">
+                Get Free API Key ↗
+              </a>
+            </div>
+            <div class="flex gap-2">
+              <input 
+                type="password" 
+                id="geminiApiKeyInput" 
+                placeholder="Paste Gemini API Key (AIza...)" 
+                class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              />
+              <button id="saveGeminiKeyBtn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shrink-0 transition-all">
+                Save & Activate
+              </button>
+            </div>
+          </div>
+          <div id="geminiKeyStatus" class="text-[10px] text-slate-400 font-mono"></div>
+        </div>
+
+        <!-- Local Termux / Ollama Bridge -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2">
+          <div class="font-bold text-white flex items-center gap-1.5">
+            <span>🦙 Local Termux / Ollama Bridge</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Run Gemma 2 / Llama 3 on-device inside Termux or on your PC over local Wi-Fi:
+          </p>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              id="ollamaEndpointInput" 
+              value="http://localhost:11434" 
+              class="flex-1 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none"
+            />
+            <button id="saveOllamaBtn" class="px-3 py-1.5 bg-[#333333] hover:bg-[#3D3D3D] text-white font-bold rounded-xl shrink-0">
+              Connect
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 2: ON-DEVICE WEIGHTS -->
+      <div id="tabOnDeviceContent" class="space-y-3 mb-4 hidden">
+        
+        <!-- Google Gemma 4 Card -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-purple-500/60 space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Google Gemma 4 (2B INT4)</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 font-normal">Official</span>
+              </div>
+              <div class="text-[11px] text-slate-400">LiteRT-LM / GGUF • 1.70 GB • Qualcomm NPU / CPU</div>
+            </div>
+            <span id="gemmaStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+              Not Installed
+            </span>
+          </div>
+
+          <!-- Download Progress Container -->
+          <div id="gemmaDownloadProgressBox" class="hidden space-y-1.5 pt-1">
+            <div class="w-full bg-[#1C1C1E] rounded-full h-2 overflow-hidden border border-[#3A3A3C]">
+              <div id="gemmaProgressBar" class="bg-purple-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="gemmaProgressText">0 MB / 1.70 GB (0%)</span>
+              <span id="gemmaProgressStatus" class="text-purple-400">Downloading...</span>
+            </div>
+          </div>
+
+          <!-- Download / Action Button -->
+          <button id="downloadGemmaBtn" class="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all">
+            <span>⬇️</span>
+            <span id="downloadGemmaBtnText">Download Gemma 4 (1.70 GB)</span>
+          </button>
+          <div class="flex justify-end">
+            <button id="gemmaDeleteBtn" class="hidden text-[10px] text-slate-500 hover:text-rose-400 underline transition-all">
+              🗑️ Delete & Re-download
+            </button>
+          </div>
+        </div>
+
+        <!-- Meta Llama 3.2 (1B Ultra-Light) -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Meta Llama 3.2 (1B Mobile)</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 font-normal">750 MB</span>
+              </div>
+              <div class="text-[11px] text-slate-400">llama.cpp GGUF • Ultra-Light Storage</div>
+            </div>
+            <span id="llamaStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+              Not Installed
+            </span>
+          </div>
+
+          <div id="llamaDownloadProgressBox" class="hidden space-y-1.5 pt-1">
+            <div class="w-full bg-[#1C1C1E] rounded-full h-2 overflow-hidden border border-[#3A3A3C]">
+              <div id="llamaProgressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="llamaProgressText">0 MB / 750 MB (0%)</span>
+              <span id="llamaProgressStatus" class="text-blue-400">Downloading...</span>
+            </div>
+          </div>
+
+          <button id="downloadLlamaBtn" class="w-full py-2 bg-[#333333] hover:bg-[#3D3D3D] text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all">
+            <span>⬇️</span>
+            <span id="downloadLlamaBtnText">Download Llama 3.2 (750 MB)</span>
+          </button>
+          <div class="flex justify-end">
+            <button id="llamaDeleteBtn" class="hidden text-[10px] text-slate-500 hover:text-rose-400 underline transition-all">
+              🗑️ Delete & Re-download
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <button id="doneModelModalBtn" class="w-full py-2.5 bg-white text-black font-bold rounded-xl shadow">
+        Done
+      </button>
+    </div>
+  </div>
+
+  <!-- Safety Modal (Human-In-The-Loop) -->
+  <div id="safetyModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#1C1C1E] border border-rose-900/60 rounded-3xl max-w-sm w-full p-5 shadow-2xl text-xs animate-in zoom-in-95 duration-150">
+      <div class="flex items-center gap-2 mb-2 text-rose-400 font-bold text-sm">
+        <span>🛡️</span>
+        <span>Safety Shield Interception</span>
+      </div>
+      <p class="text-slate-300 text-xs mb-3" id="safetyReasonText">
+        Destructive operation detected.
+      </p>
+      <div class="p-2.5 rounded-xl bg-black border border-[#2C2C2E] font-mono text-[11px] text-slate-400 mb-4" id="safetyTargetText">
+        Target: Wipe Bank Account
+      </div>
+      <div class="flex gap-2">
+        <button id="safetyBlockBtn" class="flex-1 py-2 rounded-xl bg-[#2C2C2E] hover:bg-[#333333] text-white font-semibold">
+          Block
+        </button>
+        <button id="safetyAllowBtn" class="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold">
+          Authorize Once
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Core Scripts -->
+  <script src="src/engine/SemanticUIPruner.js"></script>
+  <script src="src/engine/SafetyShield.js"></script>
+  <script src="src/engine/ActionVerifier.js"></script>
+  <script src="src/engine/ModelEngine.js"></script>
+  <script src="src/data/mockApps.js"></script>
+  <script src="src/engine/AgentLoop.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
