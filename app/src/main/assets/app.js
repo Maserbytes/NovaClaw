@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (modelEngine.geminiApiKey) {
-      if (geminiKeyStatus) geminiKeyStatus.textContent = '✓ Real LLM Reasoning active with Google Gemini Flash';
+      if (geminiKeyStatus) geminiKeyStatus.textContent = '✓ Cloud reasoning active with Google Gemini Flash';
       if (geminiActiveBadge) {
         geminiActiveBadge.textContent = 'Active (Real LLM)';
         geminiActiveBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const shortName = modelEngine.geminiApiKey ? 'Gemini Flash' : (activeModel.name.split(' ')[1] || 'Gemma');
       if (activeModelShortLabel) activeModelShortLabel.textContent = shortName;
       if (drawerModelPill) drawerModelPill.textContent = shortName;
-      if (headerStatusText) headerStatusText.textContent = modelEngine.geminiApiKey ? 'NovaClaw (Real LLM)' : 'NovaClaw Ready';
+      if (headerStatusText) headerStatusText.textContent = modelEngine.geminiApiKey ? 'NovaClaw (Cloud)' : 'NovaClaw Ready';
       if (headerStatusDot) headerStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
     } else {
       if (setupModelBanner && isAndroidNative) setupModelBanner.classList.remove('hidden');

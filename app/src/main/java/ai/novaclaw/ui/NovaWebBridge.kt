@@ -101,15 +101,7 @@ class NovaWebBridge(private val activity: MainActivity) {
         activity.scope.launch {
             emitProgress(model, 0L, model.sizeBytes, "PREPARING")
             val result = ModelDownloader.download(context, model) { p ->
-                val json = JSONObject().apply {
-                    put("fileName", model.fileName)
-                    put("bytesDownloaded", p.downloaded)
-                    put("bytesTotal", p.total)
-                    put("status", p.status)
-                }
-                activity.webView.evaluateJavascript(
-                    "window.onModelDownloadProgress && window.onModelDownloadProgress($json);", null
-                )
+                emitProgress(model, p.downloaded, p.total, p.status)
             }
             if (result.isFailure) {
                 val message = result.exceptionOrNull()?.message ?: "Unknown error"
@@ -287,9 +279,13 @@ class NovaWebBridge(private val activity: MainActivity) {
             put("bytesTotal", total)
             put("status", status)
         }
-        activity.webView.evaluateJavascript(
-            "window.onModelDownloadProgress && window.onModelDownloadProgress($json);", null
-        )
+        // WebView methods must run on the WebView's own thread. post() is safe
+        // from coroutine/IO threads; evaluateJavascript directly is not.
+        activity.webView.post {
+            activity.webView.evaluateJavascript(
+                "window.onModelDownloadProgress && window.onModelDownloadProgress($json);", null
+            )
+        }
     }
 
     private fun toast(message: String) {
