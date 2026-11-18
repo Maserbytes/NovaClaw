@@ -184,7 +184,7 @@ class AgentLoop(
                     }
                 }
 
-                val status = budget.record(prompt.length)
+                val status = budget.record(prompt)
                 emit(AgentEvent.Budget(step, status.used, status.near))
                 if (status.exhausted) {
                     NovaLog.w(tag, "Budget exhausted at step $step")
@@ -192,12 +192,12 @@ class AgentLoop(
                     return
                 }
 
-                val reply = session.send(prompt)
+                val reply = session!!.send(prompt)
                 if (reply.hasDroppedToolCall) {
                     NovaLog.w(tag, "Malformed tool call detected; rebuilding conversation")
-                    session.markDirty()
+                    session!!.markDirty()
                     emit(AgentEvent.Error("The model emitted a malformed tool call. Retrying with a fresh session."))
-                    session.close()
+                    session!!.close()
                     session = engine.openSession(systemPrompt, selectedTools)
                     delay(200)
                     continue
@@ -261,9 +261,9 @@ class AgentLoop(
                     return
                 }
 
-                val followUp = session.sendToolResponses(
+                val followUp = session!!.sendToolResponses(
                     listOf(call.name to resultJson(call.name, result)))
-                if (followUp.hasDroppedToolCall) session.markDirty()
+                if (followUp.hasDroppedToolCall) session!!.markDirty()
                 if (followUp.toolCalls.isEmpty() && !followUp.text.isNullOrBlank()) {
                     val answer = followUp.text.trim()
                     history.append("nova", answer)

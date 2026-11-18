@@ -184,8 +184,14 @@ class LiteRTEngine(private val context: Context) {
 
         if (msg != null) {
             runCatching { msg.toolCalls?.forEach { calls.add(ToolCall(it.name, normalize(it.arguments))) } }
-            runCatching { thought = msg.channels?.get("thought")?.toString()?.trim()?.ifEmpty { null } }
-            runCatching { text = msg.text?.trim()?.ifEmpty { null } }
+            runCatching {
+                val channels = msg.javaClass.getMethod("getChannels").invoke(msg) as? Map<*, *>
+                thought = channels?.get("thought")?.toString()?.trim()?.ifEmpty { null }
+            }
+            runCatching {
+                val value = msg.javaClass.getMethod("getText").invoke(msg)
+                text = value?.toString()?.trim()?.ifEmpty { null }
+            }
             runCatching { raw = msg.contents?.toString().orEmpty() }
         } else {
             raw = message.toString()

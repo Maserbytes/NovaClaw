@@ -8,7 +8,7 @@ data class ToolSpec(
     companion object {
         fun obj(
             description: String,
-            properties: Map<String, String>,
+            properties: Map<String, String> = emptyMap(),
             required: List<String> = emptyList(),
         ): Map<String, Any> = mapOf(
             "type" to "object",

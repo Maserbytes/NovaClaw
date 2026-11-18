@@ -12,9 +12,9 @@ class TaskBudget(private val maxSteps: Int = 30, private val maxTokens: Int = 24
     private var steps = 0
     private var tokens = 0
 
-    fun record(promptChars: Int): BudgetStatus {
+    fun record(prompt: String): BudgetStatus {
         steps++
-        tokens += TokenMonitor.estimate(promptChars)
+        tokens += TokenMonitor.estimate(prompt)
         return status()
     }
 

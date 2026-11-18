@@ -43,6 +43,9 @@ class NovaAccessibilityService : AccessibilityService() {
     private var lastSnapshot: ScreenSnapshot? = null
 
     companion object {
+        const val MAX_NODES = 90
+        const val MAX_DEPTH = 14
+
         @Volatile
         var instance: NovaAccessibilityService? = null
             private set
@@ -115,9 +118,9 @@ class NovaAccessibilityService : AccessibilityService() {
     /** True when a real system dialog/alert window is present (not just a null root). */
     fun hasBlockingDialog(): Boolean {
         return windows?.any { w ->
-            w.type == AccessibilityWindowInfo.TYPE_DIALOG ||
-                w.type == AccessibilityWindowInfo.TYPE_SYSTEM ||
-                w.type == AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER
+            w.type == AccessibilityWindowInfo.TYPE_SYSTEM ||
+                w.type == AccessibilityWindowInfo.TYPE_SYSTEM_ERROR ||
+                w.isModal
         } ?: false
     }
 
@@ -416,8 +419,8 @@ class NovaAccessibilityService : AccessibilityService() {
         return found.get()
     }
 
-    suspend fun back(): ActionOutcome = globalAction(ACTION_GLOBAL_ACTION_BACK, "back")
-    suspend fun home(): ActionOutcome = globalAction(ACTION_GLOBAL_ACTION_HOME, "home")
+    suspend fun back(): ActionOutcome = globalAction(GLOBAL_ACTION_BACK, "back")
+    suspend fun home(): ActionOutcome = globalAction(GLOBAL_ACTION_HOME, "home")
 
     private suspend fun globalAction(action: Int, name: String): ActionOutcome =
         withContext(Dispatchers.Default) {
@@ -488,8 +491,4 @@ class NovaAccessibilityService : AccessibilityService() {
         }?.packageName
     }
 
-    private companion object {
-        const val MAX_NODES = 90
-        const val MAX_DEPTH = 14
-    }
 }
