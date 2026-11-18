@@ -117,11 +117,7 @@ class NovaAccessibilityService : AccessibilityService() {
 
     /** True when a real system dialog/alert window is present (not just a null root). */
     fun hasBlockingDialog(): Boolean {
-        return windows?.any { w ->
-            w.type == AccessibilityWindowInfo.TYPE_SYSTEM ||
-                w.type == AccessibilityWindowInfo.TYPE_SYSTEM_ERROR ||
-                w.isModal
-        } ?: false
+        return windows?.any { w -> w.type == AccessibilityWindowInfo.TYPE_SYSTEM } ?: false
     }
 
     private fun buildSnapshot(root: AccessibilityNodeInfo, goal: String): ScreenSnapshot {

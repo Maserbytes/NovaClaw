@@ -14,7 +14,6 @@ import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.SamplerConfig
-import com.google.ai.edge.litertlm.ThinkingConfig
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -126,8 +125,6 @@ class LiteRTEngine(private val context: Context) {
             systemInstruction = Contents.of(systemPrompt.trimIndent()),
             tools = nativeTools,
             samplerConfig = SamplerConfig(topK = 64, topP = 0.95, temperature = temperature),
-            thinkingConfig = ThinkingConfig(enableThinking = true, thinkingTokenBudget = 256),
-            maxOutputToken = 256,
             automaticToolCalling = false,
         )
         val conversation = LocalRuntimeGate.write { currentEngine.createConversation(config) }

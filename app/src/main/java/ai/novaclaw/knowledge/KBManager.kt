@@ -38,7 +38,7 @@ class KBManager(private val context: Context) {
                 val lines = file.readLines()
                 val match = lines.firstOrNull { it.contains(q, ignoreCase = true) }
                 if (match != null) "${file.name}: ${match.take(140)}" else null
-            }.take(10)
+            }.take(10).toList()
         return if (hits.isEmpty()) "No matches." else hits.joinToString("\n")
     }
 
