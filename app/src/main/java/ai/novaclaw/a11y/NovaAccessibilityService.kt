@@ -403,6 +403,28 @@ class NovaAccessibilityService : AccessibilityService() {
         return null
     }
 
+    suspend fun typeIntoFocused(text: String): ActionOutcome = withContext(Dispatchers.Default) {
+        val pre = currentFingerprint()
+        val started = System.currentTimeMillis()
+        val root = rootInActiveWindow
+            ?: return@withContext ActionOutcome(false, "No active window", pre, pre, 0L)
+        val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root)
+            ?: return@withContext ActionOutcome(false, "No focused or editable field found", pre, pre, 0L)
+
+        target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        val accepted = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        val (changed, post) = settleAndFingerprint(pre)
+        val verified = accepted && (changed || containsText(text))
+        ActionOutcome(
+            verified,
+            if (verified) "Text entered" else "Text set action performed",
+            pre, post, System.currentTimeMillis() - started
+        )
+    }
+
     private fun containsText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val found = AtomicBoolean(false)

@@ -194,17 +194,39 @@ class LiteRTEngine(private val context: Context) {
             raw = message.toString()
         }
 
+        // Extract thinking tags if not provided by native channels
+        if (thought.isNullOrBlank()) {
+            val m = Regex("""<thought>(.*?)</thought>""", RegexOption.DOT_MATCHES_ALL).find(raw)
+            if (m != null) thought = m.groupValues[1].trim().ifEmpty { null }
+        }
+
         // Fallback for models/runtimes that emit tool calls as tagged text.
         if (calls.isEmpty()) {
-            Regex("""<tool_call>\s*(\{.*?\})\s*</tool_call>""", RegexOption.DOT_MATCHES_ALL)
-                .findAll(raw).forEach { m ->
-                    runCatching {
-                        val map = gson.fromJson(m.groupValues[1], Map::class.java) as Map<*, *>
-                        val name = map["name"]?.toString() ?: return@forEach
-                        val args = normalize(map["arguments"])
-                        calls.add(ToolCall(name, args))
+            // Match <|tool_call|>call:name{args}<|tool_call|> or <tool_call>{"name":...}</tool_call>
+            val taggedRegex = Regex("""<\|?tool_call\|?>\s*(?:call:)?(\w+)?\s*(\{.*?\})\s*</?\|?tool_call\|?>""", RegexOption.DOT_MATCHES_ALL)
+            taggedRegex.findAll(raw).forEach { m ->
+                runCatching {
+                    val inlineName = m.groupValues[1].takeIf { it.isNotBlank() }
+                    val jsonStr = m.groupValues[2]
+                    val map = gson.fromJson(jsonStr, Map::class.java) as Map<*, *>
+                    val name = inlineName ?: map["name"]?.toString() ?: map["tool"]?.toString() ?: return@forEach
+                    val args = if (inlineName != null) normalize(map) else normalize(map["arguments"] ?: map["parameters"] ?: map)
+                    calls.add(ToolCall(name, args))
+                }
+            }
+        }
+
+        // Secondary fallback: plain call:tool_name{...} without XML tags
+        if (calls.isEmpty()) {
+            Regex("""(?:call:)?(\w+)\s*(\{.*?\})""", RegexOption.DOT_MATCHES_ALL).findAll(raw).forEach { m ->
+                runCatching {
+                    val name = m.groupValues[1]
+                    if (name in listOf("open_app", "tap_node", "tap", "t", "scroll", "system_key", "get_device_info", "finish")) {
+                        val map = gson.fromJson(m.groupValues[2], Map::class.java) as Map<*, *>
+                        calls.add(ToolCall(name, normalize(map)))
                     }
                 }
+            }
         }
 
         return ModelReply(text, thought, calls, backendLabel, raw)

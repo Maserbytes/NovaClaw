@@ -70,7 +70,8 @@ class AgentLoop {
 }
 
 /** Called by MainActivity for every AgentEvent. */
-window.novaOnEvent = function (json) {
+if (typeof window !== 'undefined') {
+  window.novaOnEvent = function (json) {
   const loop = activeNativeLoop;
   if (!loop) return;
   let e;
@@ -135,6 +136,7 @@ window.novaOnEvent = function (json) {
       break;
   }
 };
+}
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { AgentLoop };

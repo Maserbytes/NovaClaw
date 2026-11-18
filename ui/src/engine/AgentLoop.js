@@ -1,27 +1,16 @@
 /**
- * NovaClaw Agent Loop (Codex / Antigravity Autonomous Engine)
- * 
- * Orchestrates the full closed-loop ReAct execution cycle:
- * [Observe] -> [Prune (SoM)] -> [Reason (Gemma 4)] -> [Safety Filter] -> 
- * [Execute Gesture] -> [Settle Debounce] -> [Verify Diff] -> [Reflect & Adapt]
+ * Native-backed AgentLoop.
+ *
+ * The JS no longer simulates reasoning. It submits the goal to the Kotlin
+ * ReAct loop and renders the events that come back through AndroidBridge.
+ * The public API is unchanged so app.js needs no edits.
  */
+
+let activeNativeLoop = null;
 
 class AgentLoop {
   constructor(options = {}) {
-    this.pruner = options.pruner;
-    this.safetyShield = options.safetyShield;
-    this.verifier = options.verifier;
     this.modelEngine = options.modelEngine;
-    this.environment = options.environment; // Device or simulator interface
-
-    this.state = 'IDLE'; // IDLE | OBSERVING | THINKING | SAFETY_CHECK | ACTING | VERIFYING | COMPLETED | PAUSED
-    this.currentGoal = '';
-    this.stepIndex = 0;
-    this.maxSteps = options.maxSteps !== undefined ? options.maxSteps : Infinity; // Unlimited steps by default
-    this.history = [];
-    this.isRunning = false;
-
-    // Event listeners
     this.callbacks = {
       onStateChange: options.onStateChange || (() => {}),
       onStep: options.onStep || (() => {}),
@@ -30,199 +19,123 @@ class AgentLoop {
       onVerification: options.onVerification || (() => {}),
       onSafetyPrompt: options.onSafetyPrompt || (() => {}),
       onComplete: options.onComplete || (() => {}),
-      onError: options.onError || (() => {})
+      onError: options.onError || (() => {}),
     };
+    this.state = 'IDLE';
+    this.isRunning = false;
+    this.stepIndex = 0;
+    this.goal = '';
+    activeNativeLoop = this;
   }
 
   async start(goal) {
     if (this.isRunning) return;
-
-    this.currentGoal = goal;
+    if (!window.AndroidBridge || !window.AndroidBridge.submitTask) {
+      this.callbacks.onError('Native bridge unavailable. Open this UI inside the NovaClaw app.');
+      return;
+    }
+    this.goal = goal;
     this.stepIndex = 0;
-    this.history = [];
     this.isRunning = true;
-    this.safetyShield.reset();
-
     this._setState('OBSERVING');
-    await this.runLoop();
+    const modelId = this.modelEngine && this.modelEngine.getNativeModelId
+      ? this.modelEngine.getNativeModelId() : 'gemma4-e2b';
+    const ok = window.AndroidBridge.submitTask(goal, modelId);
+    if (!ok) this.isRunning = false;
   }
 
   stop() {
+    if (window.AndroidBridge && window.AndroidBridge.stopTask) window.AndroidBridge.stopTask();
     this.isRunning = false;
-    this.safetyShield.triggerKillSwitch();
     this._setState('IDLE');
   }
 
   resumeAfterSafetyApproval(approvalKey) {
-    this.safetyShield.approveAction(approvalKey);
-    this.isRunning = true;
+    if (window.AndroidBridge && window.AndroidBridge.resolveSafety) {
+      window.AndroidBridge.resolveSafety(approvalKey, true);
+    }
     this._setState('ACTING');
-    this.runLoop();
   }
 
-  async runLoop() {
-    while (this.isRunning && (this.maxSteps === Infinity || this.stepIndex < this.maxSteps)) {
-      this.stepIndex++;
+  denySafety(approvalKey) {
+    if (window.AndroidBridge && window.AndroidBridge.resolveSafety) {
+      window.AndroidBridge.resolveSafety(approvalKey, false);
+    }
+  }
 
-      // 1. Observe: Capture and Prune screen
-      this._setState('OBSERVING');
-      const rawScreen = this.environment.getCurrentScreen();
-      const preState = this.pruner.prune(rawScreen, {
-        packageName: rawScreen.packageName,
-        appName: rawScreen.appName
-      });
+  _setState(s) {
+    this.state = s;
+    this.callbacks.onStateChange(s);
+  }
+}
 
-      this.callbacks.onStep({
-        stepIndex: this.stepIndex,
+/** Called by MainActivity for every AgentEvent. */
+if (typeof window !== 'undefined') {
+  window.novaOnEvent = function (json) {
+  const loop = activeNativeLoop;
+  if (!loop) return;
+  let e;
+  try { e = typeof json === 'string' ? JSON.parse(json) : json; } catch (err) { return; }
+
+  switch (e.type) {
+    case 'state':
+      loop.isRunning = e.name !== 'IDLE';
+      loop._setState(e.name);
+      break;
+    case 'step':
+      loop.stepIndex = e.index;
+      loop.callbacks.onStep({
+        stepIndex: e.index,
         stage: 'OBSERVATION',
-        screen: rawScreen,
-        prunedState: preState
+        appName: e.app,
+        generation: e.generation,
       });
-
-      // 2. Think: Model inference (Gemma 4)
-      this._setState('THINKING');
-      let plan;
-      try {
-        plan = await this.modelEngine.generateActionStep({
-          userGoal: this.currentGoal,
-          prunedState: preState,
-          history: this.history
-        });
-      } catch (err) {
-        this.callbacks.onError(`Inference error: ${err.message}`);
-        this.stop();
-        return;
-      }
-
-      this.callbacks.onThought({
-        stepIndex: this.stepIndex,
-        thought: plan.thought,
-        plan
+      break;
+    case 'thought':
+      loop.callbacks.onThought({
+        stepIndex: e.step,
+        thought: e.text,
+        plan: { action: 'thinking', payload: e.text },
+        backend: e.backend,
       });
-
-      // Check if model declared error, missing setup, or finish
-      if (plan.action === 'error' || plan.needsModelSetup) {
-        this._setState('IDLE');
-        this.isRunning = false;
-        this.callbacks.onError(plan.payload || 'Model is not configured.');
-        return;
-      }
-
-      if (plan.action === 'finish') {
-        this._setState('COMPLETED');
-        this.isRunning = false;
-        this.callbacks.onComplete({
-          success: true,
-          goal: this.currentGoal,
-          totalSteps: this.stepIndex,
-          isConversational: plan.isConversational || false,
-          summary: plan.payload || 'Task successfully accomplished and verified.'
-        });
-        return;
-      }
-
-      // 3. Resolve Target Element
-      let targetElement = null;
-      if (plan.target_id) {
-        targetElement = preState.elementMap.get(plan.target_id) || null;
-      }
-
-      const candidateAction = {
-        type: plan.action,
-        targetId: plan.target_id,
-        targetElement,
-        payload: plan.payload,
-        label: targetElement ? targetElement.label : plan.payload
-      };
-
-      // 4. Safety Guard Evaluation
-      this._setState('SAFETY_CHECK');
-      const safetyResult = this.safetyShield.evaluate(candidateAction, {
-        packageName: preState.packageName,
-        appName: rawScreen.appName
+      break;
+    case 'action':
+      loop.callbacks.onAction({
+        stepIndex: e.step,
+        action: { type: e.tool, label: e.label, targetId: null },
       });
-
-      if (!safetyResult.allowed) {
-        if (safetyResult.requiresConfirmation) {
-          this.isRunning = false;
-          this._setState('PAUSED');
-          this.callbacks.onSafetyPrompt({
-            safetyResult,
-            action: candidateAction,
-            stepIndex: this.stepIndex
-          });
-          return; // Wait for user approval
-        } else {
-          this.callbacks.onError(`Action blocked by Safety Shield: ${safetyResult.reason}`);
-          this.stop();
-          return;
-        }
-      }
-
-      // Record in audit log
-      this.safetyShield.recordAction(candidateAction);
-
-      // 5. Execute Action on Environment
-      this._setState('ACTING');
-      this.callbacks.onAction({
-        stepIndex: this.stepIndex,
-        action: candidateAction
+      break;
+    case 'verification':
+      loop.callbacks.onVerification({
+        stepIndex: e.step,
+        verification: { success: e.success, message: e.message },
+        preHash: e.pre,
+        postHash: e.post,
       });
-
-      await this.environment.executeAction(candidateAction);
-
-      // 6. Settle: Wait for UI animations & screen transitions
-      this._setState('SETTLING');
-      await new Promise(r => setTimeout(r, this.verifier.settleDelayMs));
-
-      // 7. Verify: Capture post-state and diff
-      this._setState('VERIFYING');
-      const postRawScreen = this.environment.getCurrentScreen();
-      const postState = this.pruner.prune(postRawScreen, {
-        packageName: postRawScreen.packageName,
-        appName: postRawScreen.appName
+      break;
+    case 'safety':
+      loop.callbacks.onSafetyPrompt({
+        safetyResult: { reason: e.reason, approvalKey: e.key, requiresConfirmation: true },
+        action: { type: 'sensitive-action', label: e.target, payload: e.target },
+        stepIndex: loop.stepIndex,
       });
-
-      const verificationResult = this.verifier.verify(candidateAction, preState, postState);
-      this.callbacks.onVerification({
-        stepIndex: this.stepIndex,
-        action: candidateAction,
-        verification: verificationResult,
-        preHash: preState.stateHash,
-        postHash: postState.stateHash
+      break;
+    case 'complete':
+      loop.isRunning = false;
+      loop.callbacks.onComplete({
+        success: true,
+        goal: loop.goal,
+        totalSteps: e.steps,
+        isConversational: e.conversational,
+        summary: e.summary,
       });
-
-      // Record step into history for agent reflection
-      this.history.push({
-        step: this.stepIndex,
-        action: candidateAction,
-        preHash: preState.stateHash,
-        postHash: postState.stateHash,
-        verification: verificationResult
-      });
-
-      // Self-Correction & Reflection if action had no effect
-      if (!verificationResult.success) {
-        console.warn(`[NovaClaw AgentLoop] Step ${this.stepIndex} action failed verification:`, verificationResult.reflection);
-      }
-
-      // Slight pacing delay between steps for smooth visual tracking
-      await new Promise(r => setTimeout(r, 450));
-    }
-
-    if (this.maxSteps !== Infinity && this.stepIndex >= this.maxSteps && this.isRunning) {
-      this.stop();
-      this.callbacks.onComplete({
-        success: false,
-        summary: `Reached maximum step limit (${this.maxSteps}). Halting for safety.`
-      });
-    }
+      break;
+    case 'error':
+      loop.isRunning = false;
+      loop.callbacks.onError(e.message);
+      break;
   }
-
-  _setState(newState) {
-    this.state = newState;
-    this.callbacks.onStateChange(newState);
-  }
+};
 }
 
 if (typeof module !== 'undefined' && module.exports) {

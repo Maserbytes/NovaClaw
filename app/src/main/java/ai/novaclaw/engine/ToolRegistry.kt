@@ -87,7 +87,12 @@ class ToolRegistry(private val context: Context) {
                 else service.tapAt(x, y)
             }
 
-            "t" -> typeText(args["text"]?.toString().orEmpty())
+            "t" -> {
+                val text = args["text"]?.toString().orEmpty()
+                val id = args["node_id"]?.toString() ?: snapshot?.nodes?.firstOrNull { it.editable }?.id
+                if (id != null) service.setText(id, generation, text)
+                else service.typeIntoFocused(text)
+            }
 
             "scroll" -> service.scroll(args["direction"]?.toString() ?: "down", generation)
 

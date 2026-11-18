@@ -99,10 +99,13 @@ class NovaWebBridge(private val activity: MainActivity) {
             ?: return -1L
         val id = downloadIds.incrementAndGet()
         activity.scope.launch {
+            activity.startForegroundTask("Downloading ${model.name}")
             emitProgress(model, 0L, model.sizeBytes, "PREPARING")
             val result = ModelDownloader.download(context, model) { p ->
                 emitProgress(model, p.downloaded, p.total, p.status)
+                activity.updateForegroundTask("Downloading ${model.name}: ${p.percent}%")
             }
+            activity.stopForegroundTask()
             if (result.isFailure) {
                 val message = result.exceptionOrNull()?.message ?: "Unknown error"
                 emitProgress(model, 0L, model.sizeBytes, "FAILED: ${message.take(140)}")
@@ -120,6 +123,7 @@ class NovaWebBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun cancelDownload(downloadId: Long) {
+        activity.stopForegroundTask()
         ModelCatalog.LOCAL.forEach { ModelDownloader.cancel(context, it) }
     }
 

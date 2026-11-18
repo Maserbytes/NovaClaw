@@ -47,7 +47,11 @@ object ModelDownloader {
         }
 
         // Drop a partial file that is obviously oversized/corrupt.
-        if (temp.exists() && temp.length() > model.sizeBytes + 8L * 1024 * 1024) temp.delete()
+        if (temp.exists() && temp.length() > model.sizeBytes + 16L * 1024 * 1024) temp.delete()
+
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        val wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "novaclaw:model_download")
+        wakeLock?.acquire(45 * 60 * 1000L)
 
         try {
             val existing = if (temp.exists()) temp.length() else 0L
@@ -92,7 +96,7 @@ object ModelDownloader {
                 }
             }
 
-            val tolerance = 8L * 1024 * 1024
+            val tolerance = 16L * 1024 * 1024
             if (downloaded !in (model.sizeBytes - tolerance)..(model.sizeBytes + tolerance)) {
                 temp.delete()
                 return@withContext Result.failure(
@@ -114,6 +118,10 @@ object ModelDownloader {
             Result.success(target.absolutePath)
         } catch (t: Throwable) {
             Result.failure(t)
+        } finally {
+            if (wakeLock?.isHeld == true) {
+                runCatching { wakeLock.release() }
+            }
         }
     }
 

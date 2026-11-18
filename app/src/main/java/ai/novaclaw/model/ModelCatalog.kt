@@ -35,13 +35,17 @@ object ModelCatalog {
         name = "Gemma 4 E4B (on-device)",
         fileName = "gemma-4-E4B-it.litertlm",
         url = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
-        sizeBytes = 3_650_000_000L,
+        sizeBytes = 3_659_530_240L,
         minRamGb = 10,
     )
 
     val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B)
 
-    fun byId(id: String): ModelInfo? = LOCAL.firstOrNull { it.id == id }
+    fun byId(id: String): ModelInfo? = LOCAL.firstOrNull {
+        it.id.equals(id, ignoreCase = true) ||
+            it.fileName.equals(id, ignoreCase = true) ||
+            it.id.replace("-", "").equals(id.replace("-", ""), ignoreCase = true)
+    }
 
     fun recommended(context: Context): ModelInfo {
         val ram = BackendSelector.ram(context)

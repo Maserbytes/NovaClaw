@@ -161,9 +161,17 @@ class AgentLoop(
             val budget = TaskBudget()
             val stuck = StuckDetector()
             val recentHistory = history.recent(3)
+            val actionHistory = mutableListOf<String>()
 
             for (step in 1..30) {
                 if (!isRunning || !scope.isActive) return
+
+                // Refresh session periodically to stay within LiteRT-LM KV cache token limits
+                if (step > 1 && (step % 3 == 1 || session?.dirty == true)) {
+                    NovaLog.i(tag, "Refreshing model session at step $step to keep context within KV bounds")
+                    session?.close()
+                    session = engine.openSession(systemPrompt, selectedTools)
+                }
 
                 val snapshot: ScreenSnapshot = accessibility.captureScreen(goal)
                     ?: run {
@@ -178,8 +186,12 @@ class AgentLoop(
 
                 val prompt = buildString {
                     append(snapshot.compactPrompt(goal))
+                    if (actionHistory.isNotEmpty()) {
+                        append("\n\nRECENT ACTIONS IN THIS TASK:\n")
+                        actionHistory.takeLast(3).forEach { append("- ").append(it).append('\n') }
+                    }
                     if (recentHistory.isNotEmpty()) {
-                        append("\n\nRECENT CONVERSATION:\n")
+                        append("\n\nCONVERSATION CONTEXT:\n")
                         recentHistory.forEach { append("- ").append(it).append('\n') }
                     }
                 }
@@ -248,6 +260,7 @@ class AgentLoop(
                 NovaLog.d(tag, "tool:${call.name}(${call.arguments})")
 
                 val result = tools.execute(call.name, call.arguments, snapshot)
+                actionHistory.add("Step $step: ${call.name}(${describe(call, snapshot)}) -> ${result.message.take(40)}")
                 val verification = result.verification
                 emit(AgentEvent.Verification(
                     step, result.success, result.message,
