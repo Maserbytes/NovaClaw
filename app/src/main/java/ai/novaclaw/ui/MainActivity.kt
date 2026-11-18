@@ -18,6 +18,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -101,6 +103,13 @@ class MainActivity : AppCompatActivity() {
 
         bridge = NovaWebBridge(this)
         webView.addJavascriptInterface(bridge, "AndroidBridge")
+
+        // Android 15 edge-to-edge: keep the chat input above the navigation bar.
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, nav.bottom)
+            insets
+        }
         setContentView(webView)
         webView.loadUrl("file:///android_asset/index.html")
 

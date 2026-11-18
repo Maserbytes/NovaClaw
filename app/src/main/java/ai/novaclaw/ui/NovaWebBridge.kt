@@ -99,6 +99,7 @@ class NovaWebBridge(private val activity: MainActivity) {
             ?: return -1L
         val id = downloadIds.incrementAndGet()
         activity.scope.launch {
+            emitProgress(model, 0L, model.sizeBytes, "PREPARING")
             val result = ModelDownloader.download(context, model) { p ->
                 val json = JSONObject().apply {
                     put("fileName", model.fileName)
@@ -111,7 +112,9 @@ class NovaWebBridge(private val activity: MainActivity) {
                 )
             }
             if (result.isFailure) {
-                toast("Download failed: ${result.exceptionOrNull()?.message}")
+                val message = result.exceptionOrNull()?.message ?: "Unknown error"
+                emitProgress(model, 0L, model.sizeBytes, "FAILED: ${message.take(140)}")
+                toast("Download failed: $message")
             }
         }
         return id
@@ -271,6 +274,23 @@ class NovaWebBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun showToast(message: String) = toast(message)
+
+    private fun emitProgress(
+        model: ai.novaclaw.model.ModelInfo,
+        downloaded: Long,
+        total: Long,
+        status: String,
+    ) {
+        val json = JSONObject().apply {
+            put("fileName", model.fileName)
+            put("bytesDownloaded", downloaded)
+            put("bytesTotal", total)
+            put("status", status)
+        }
+        activity.webView.evaluateJavascript(
+            "window.onModelDownloadProgress && window.onModelDownloadProgress($json);", null
+        )
+    }
 
     private fun toast(message: String) {
         activity.runOnUiThread {

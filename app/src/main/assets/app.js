@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (gemmaDeleteBtn) gemmaDeleteBtn.classList.remove('hidden');
           if (gemmaDownloadProgressBox) gemmaDownloadProgressBox.classList.add('hidden');
         } else {
-          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Download Gemma 4 (1.70 GB)';
+          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Download Gemma 4 E2B (2.58 GB)';
           if (downloadGemmaBtn) {
             downloadGemmaBtn.className = 'w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
           }
@@ -429,6 +429,10 @@ document.addEventListener('DOMContentLoaded', () => {
             gemmaStatusBadge.textContent = 'Downloading';
             gemmaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-900/60 text-purple-300 border border-purple-700/60 animate-pulse';
           }
+        } else {
+          if (gemmaProgressStatus) gemmaProgressStatus.textContent = 'FAILED: model entry not recognized by native layer';
+          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Retry Download Gemma 4 E2B';
+          if (gemmaStatusBadge) gemmaStatusBadge.textContent = 'Failed';
         }
       } else {
         alert('Model download is supported on Android devices. In web demo, model is simulated.');
@@ -516,12 +520,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Active Model (Installed)';
         modelEngine.setModel('gemma-4-2b-it');
         refreshStatus();
-      } else if (data.status === 'FAILED') {
+      } else if (data.status && data.status.indexOf('FAILED') === 0) {
         if (gemmaStatusBadge) {
           gemmaStatusBadge.textContent = 'Failed';
           gemmaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-900/60 text-rose-300 border border-rose-700/60';
         }
-        if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Retry Download Gemma 4';
+        if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Retry Download Gemma 4 E2B';
       }
     } else if (data.fileName && (data.fileName.includes('Llama') || data.fileName.includes('llama'))) {
       if (llamaDownloadProgressBox) llamaDownloadProgressBox.classList.remove('hidden');
@@ -537,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (downloadLlamaBtnText) downloadLlamaBtnText.textContent = 'Active Model (Installed)';
         modelEngine.setModel('llama-3.2-1b-mobile');
         refreshStatus();
-      } else if (data.status === 'FAILED') {
+      } else if (data.status && data.status.indexOf('FAILED') === 0) {
         if (llamaStatusBadge) {
           llamaStatusBadge.textContent = 'Failed';
           llamaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-900/60 text-rose-300 border border-rose-700/60';

@@ -116,6 +116,11 @@ html, body {
 .action-tag-type { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
 .action-tag-launch { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
 
+/* Keep the composer clear of system navigation / gesture bars */
+footer {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
 /* Minimal Scrollbars */
 ::-webkit-scrollbar {
   width: 4px;
