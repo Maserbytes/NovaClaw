@@ -47,8 +47,9 @@ const AVAILABLE_MODELS = [
   },
   {
     id: 'api-gemini',
-    nativeId: '',
-    name: 'Gemini Flash (cloud — disabled)',
+    nativeId: 'gemini-flash',
+    kind: 'cloud',
+    name: 'Google Gemini Flash (cloud)',
     runtime: 'Cloud REST',
     size: '0 MB',
     fileName: '',
@@ -76,6 +77,10 @@ const AVAILABLE_MODELS = [
 class ModelEngine {
   constructor(options = {}) {
     this.geminiApiKey = '';
+    if (window.AndroidBridge && window.AndroidBridge.hasCloudApiKey &&
+        window.AndroidBridge.hasCloudApiKey()) {
+      this.geminiApiKey = 'saved-in-native-storage';
+    }
     this.ollamaEndpoint = 'http://localhost:11434';
     this.selectedModelId = options.modelId || 'gemma-4-2b-it';
     this.temperature = options.temperature || 0.2;
@@ -94,12 +99,18 @@ class ModelEngine {
     return this.getSelectedModel();
   }
 
-  setGeminiApiKey(key) { this.geminiApiKey = (key || '').trim(); }
+  setGeminiApiKey(key) {
+    this.geminiApiKey = (key || '').trim();
+    if (window.AndroidBridge && window.AndroidBridge.setCloudApiKey) {
+      window.AndroidBridge.setCloudApiKey(this.geminiApiKey);
+    }
+  }
   setOllamaEndpoint(url) { this.ollamaEndpoint = (url || '').trim(); }
 
   isModelReady() {
     if (!window.AndroidBridge || !window.AndroidBridge.checkModelStatus) return true; // web preview
     const model = this.getSelectedModel();
+    if (model.kind === 'cloud') return !!this.geminiApiKey;
     if (!model.nativeId) return false;
     try {
       const status = JSON.parse(window.AndroidBridge.checkModelStatus(model.fileName) || '{}');

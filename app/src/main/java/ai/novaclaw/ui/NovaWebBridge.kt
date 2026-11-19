@@ -227,6 +227,12 @@ class NovaWebBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun setCloudApiKey(key: String) = ai.novaclaw.model.CloudConfig.setApiKey(context, key)
+
+    @JavascriptInterface
+    fun hasCloudApiKey(): Boolean = ai.novaclaw.model.CloudConfig.apiKey(context).isNotBlank()
+
+    @JavascriptInterface
     fun newConversation() { activity.history.newConversation() }
 
     @JavascriptInterface

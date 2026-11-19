@@ -132,24 +132,24 @@ class LiteRTEngine(private val context: Context) {
         return Session(conversation)
     }
 
-    inner class Session(private val conversation: Conversation) : AutoCloseable {
+    inner class Session(private val conversation: Conversation) : ReasoningSession {
         private var closed = false
         var dirty = false
             private set
 
-        suspend fun send(prompt: String, timeoutMs: Long = 120_000L): ModelReply =
+        override suspend fun send(prompt: String, timeoutMs: Long): ModelReply =
             invoke(timeoutMs) { conversation.sendMessage(prompt) }
 
         /** Send tool execution results in the format Gemma 4 expects. */
-        suspend fun sendToolResponses(
+        override suspend fun sendToolResponses(
             responses: List<Pair<String, String>>,
-            timeoutMs: Long = 120_000L,
+            timeoutMs: Long,
         ): ModelReply = invoke(timeoutMs) {
             val contents = Contents.of(responses.map { Content.ToolResponse(it.first, it.second) })
             conversation.sendMessage(Message.tool(contents))
         }
 
-        fun markDirty() { dirty = true }
+        override fun markDirty() { dirty = true }
 
         private suspend fun invoke(timeoutMs: Long, call: () -> Any): ModelReply =
             withContext(Dispatchers.Default) {
@@ -193,6 +193,7 @@ class LiteRTEngine(private val context: Context) {
         } else {
             raw = message.toString()
         }
+        if (text == null && raw.isNotBlank()) text = raw.trim()
 
         // Extract thinking tags if not provided by native channels
         if (thought.isNullOrBlank()) {

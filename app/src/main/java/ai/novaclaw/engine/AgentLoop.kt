@@ -2,8 +2,11 @@ package ai.novaclaw.engine
 
 import ai.novaclaw.a11y.NovaAccessibilityService
 import ai.novaclaw.a11y.ScreenSnapshot
+import ai.novaclaw.model.CloudConfig
+import ai.novaclaw.model.CloudEngine
 import ai.novaclaw.model.LiteRTEngine
 import ai.novaclaw.model.ModelCatalog
+import ai.novaclaw.model.ReasoningSession
 import ai.novaclaw.model.ModelInfo
 import ai.novaclaw.safety.SafetyShield
 import ai.novaclaw.state.ConversationStore
@@ -42,6 +45,7 @@ sealed class AgentEvent(val type: String) {
 class AgentLoop(
     private val context: Context,
     private val engine: LiteRTEngine,
+    private val cloudEngine: CloudEngine,
     private val accessibility: NovaAccessibilityService,
     private val tools: ToolRegistry,
     private val safety: SafetyShield,
@@ -96,7 +100,7 @@ class AgentLoop(
             isRunning = false
             return
         }
-        var session: LiteRTEngine.Session? = null
+        var session: ReasoningSession? = null
         try {
             history.append("user", goal)
 
@@ -134,20 +138,23 @@ class AgentLoop(
                 return
             }
 
-            if (model.kind != ModelInfo.Kind.LITE_RT) {
-                emit(AgentEvent.Error("Cloud models are disabled in this build. Select Gemma 4 on-device."))
+            val isCloud = model.kind == ModelInfo.Kind.CLOUD
+            val cloudKey = if (isCloud) CloudConfig.apiKey(context) else ""
+            if (isCloud && cloudKey.isBlank()) {
+                emit(AgentEvent.Error("Add a Gemini API key in Model Hub → Cloud / API, then try again."))
                 return
             }
-            if (!ModelCatalog.isInstalled(context, model)) {
-                emit(AgentEvent.Error("${model.name} is not installed. Download it from the Model Hub."))
+            if (!isCloud && !ModelCatalog.isInstalled(context, model)) {
+                emit(AgentEvent.Error("${model.name} is not installed. Download it from Model Hub → On-Device Models."))
                 return
             }
-            if (!ModelCatalog.verifyIntegrity(context, model)) {
+            if (!isCloud && !ModelCatalog.verifyIntegrity(context, model)) {
                 emit(AgentEvent.Error("Model file failed its integrity check. Delete and re-download it."))
                 return
             }
 
-            val backend = engine.open(ModelCatalog.path(context, model), preferGpu = false)
+            val backend = if (isCloud) "Gemini Flash (cloud)" else
+                engine.open(ModelCatalog.path(context, model), preferGpu = false)
             NovaLog.i(tag, "engine ready backend=$backend")
 
             val playbook = PlaybookManager.match(goal)
@@ -155,7 +162,11 @@ class AgentLoop(
             val selectedTools = ToolSelector.select(goal, tools.specs)
             NovaLog.i(tag, "prompt composed playbook=${playbook?.id ?: "none"} tools=${selectedTools.map { it.name }}")
 
-            session = engine.openSession(systemPrompt, selectedTools)
+            session = if (isCloud) {
+                cloudEngine.openSession(cloudKey, CloudConfig.MODEL, systemPrompt, selectedTools)
+            } else {
+                engine.openSession(systemPrompt, selectedTools)
+            }
             emit(AgentEvent.State("THINKING"))
 
             val budget = TaskBudget()
@@ -166,10 +177,11 @@ class AgentLoop(
             for (step in 1..30) {
                 if (!isRunning || !scope.isActive) return
 
-                // Refresh session periodically to stay within LiteRT-LM KV cache token limits
-                if (step > 1 && (step % 3 == 1 || session?.dirty == true)) {
-                    NovaLog.i(tag, "Refreshing model session at step $step to keep context within KV bounds")
-                    session?.close()
+                // LiteRT has a hard KV-cache limit; cloud keeps its own history.
+                val local = session as? LiteRTEngine.Session
+                if (!isCloud && step > 1 && (step % 3 == 1 || local?.dirty == true)) {
+                    NovaLog.i(tag, "Refreshing local session at step $step to stay within KV bounds")
+                    local?.close()
                     session = engine.openSession(systemPrompt, selectedTools)
                 }
 
@@ -210,7 +222,11 @@ class AgentLoop(
                     session!!.markDirty()
                     emit(AgentEvent.Error("The model emitted a malformed tool call. Retrying with a fresh session."))
                     session!!.close()
-                    session = engine.openSession(systemPrompt, selectedTools)
+                    session = if (isCloud) {
+                        cloudEngine.openSession(cloudKey, CloudConfig.MODEL, systemPrompt, selectedTools)
+                    } else {
+                        engine.openSession(systemPrompt, selectedTools)
+                    }
                     delay(200)
                     continue
                 }

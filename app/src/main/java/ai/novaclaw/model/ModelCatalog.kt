@@ -39,13 +39,23 @@ object ModelCatalog {
         minRamGb = 10,
     )
 
+    val GEMINI = ModelInfo(
+        id = "gemini-flash",
+        name = "Gemini Flash (cloud)",
+        fileName = "",
+        url = "",
+        sizeBytes = 0L,
+        minRamGb = 0,
+        kind = ModelInfo.Kind.CLOUD,
+    )
+
     val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B)
 
     fun byId(id: String): ModelInfo? = LOCAL.firstOrNull {
         it.id.equals(id, ignoreCase = true) ||
             it.fileName.equals(id, ignoreCase = true) ||
             it.id.replace("-", "").equals(id.replace("-", ""), ignoreCase = true)
-    }
+    } ?: if (id.equals(GEMINI.id, ignoreCase = true)) GEMINI else null
 
     fun recommended(context: Context): ModelInfo {
         val ram = BackendSelector.ram(context)

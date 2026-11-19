@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private val gson = Gson()
 
     internal val engine by lazy { LiteRTEngine(applicationContext) }
+    internal val cloudEngine by lazy { ai.novaclaw.model.CloudEngine(applicationContext) }
     internal val safety = SafetyShield()
     internal val sessionStore = ai.novaclaw.state.TaskSessionStore()
     internal val history by lazy { ai.novaclaw.state.ConversationStore(applicationContext) }
@@ -176,6 +177,7 @@ class MainActivity : AppCompatActivity() {
         return agentLoop ?: AgentLoop(
             context = applicationContext,
             engine = engine,
+            cloudEngine = cloudEngine,
             accessibility = service,
             tools = ai.novaclaw.engine.ToolRegistry(applicationContext),
             safety = safety,
