@@ -117,8 +117,8 @@ class AgentLoop(
                 return
             }
 
-            if (ConversationRouter.isConversational(goal)) {
-                NovaLog.decision(tag, "route", "conversation", "greeting or small talk — answer, do not touch the phone")
+            if (ConversationRouter.isChatOnly(goal)) {
+                NovaLog.decision(tag, "route", "general_chat", "no phone action requested — answer with the LLM")
                 emit(AgentEvent.State("THINKING"))
                 val cloud = model.kind == ModelInfo.Kind.CLOUD
                 val key = if (cloud) CloudConfig.apiKey(context) else ""
@@ -133,20 +133,30 @@ class AgentLoop(
                 val backendLabel = if (cloud) "Gemini Flash (cloud)" else
                     engine.open(ModelCatalog.path(context, model), preferGpu = false)
                 val finishOnly = tools.specs.filter { it.name == "finish" }
-                val chatSystem = "You are NovaClaw, a friendly on-device AI assistant. " +
-                    "Answer the user's message directly and briefly. " +
-                    "Never inspect or tap the phone screen for a greeting or small talk. " +
-                    "Put your answer in finish(summary=your answer)."
+                val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant. " +
+                    "Answer questions, explain, reason, write, code, translate and chat naturally. " +
+                    "Be helpful, accurate and appropriately concise. Think before you answer when needed. " +
+                    "Do NOT inspect or touch the phone screen — the user did not ask for a device action. " +
+                    "Return your answer as plain text, or put it in finish(summary=your answer)."
                 val chatSession = if (cloud) {
                     cloudEngine.openSession(key, CloudConfig.MODEL, chatSystem, finishOnly)
                 } else {
                     engine.openSession(chatSystem, finishOnly)
                 }
                 session = chatSession
-                val reply = chatSession.send("User message: $goal")
+                val context = history.recent(3)
+                val chatPrompt = buildString {
+                    if (context.isNotEmpty()) {
+                        append("Recent conversation:\n")
+                        context.forEach { append("- ").append(it).append('\n') }
+                        append('\n')
+                    }
+                    append("User: ").append(goal)
+                }
+                val reply = chatSession.send(chatPrompt)
                 val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
                 val answer = (reply.text ?: fromTool ?: "Hello! How can I help?").trim()
-                emit(AgentEvent.Thought(1, "Answering conversationally — no phone action needed", backendLabel))
+                emit(AgentEvent.Thought(1, "Reasoning and answering — no phone action needed", backendLabel))
                 history.append("nova", answer)
                 emit(AgentEvent.Complete(answer, true, 1))
                 return

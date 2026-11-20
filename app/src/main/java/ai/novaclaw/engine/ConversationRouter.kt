@@ -1,30 +1,35 @@
 package ai.novaclaw.engine
 
 /**
- * Detects greetings and small talk that need an answer, not phone control.
- * Without this, a small model sees the word "Hi" in the chat transcript and
- * tries to tap it as a screen element instead of replying.
+ * General-purpose chat vs phone-action routing.
+ *
+ * The default must be NORMAL LLM CHAT: questions, explanations, reasoning,
+ * writing, small talk. Phone tools are only exposed when the user explicitly
+ * asks the app to interact with the device.
  */
 object ConversationRouter {
 
-    private val actionWords = Regex(
-        "(?i)\\b(open|launch|start|send|message|text|call|tap|click|scroll|search|find|" +
-            "turn|switch|set|enable|disable|install|navigate|go|check|read|write|delete|buy|pay)\\b"
+    /** Verbs that genuinely require operating the phone. */
+    private val phoneAction = Regex(
+        "(?i)\\b(open|launch|start|send|text|call|dial|tap|click|swipe|scroll|" +
+            "install|uninstall|navigate|go to|turn on|turn off|switch on|switch off|" +
+            "enable|disable|search in|look up in|message|reply to|check my|read my|" +
+            "take a screenshot|what'?s on (my|the) screen|play|pause|stop music)\\b"
     )
 
-    private val conversational = Regex(
-        "(?i)^\\s*(hi+|hello+|hey+|yo+|yo\\W|good\\s*(morning|afternoon|evening)|" +
-            "how('s| is)\\s*(it\\s*)?going|how\\s*are\\s*you|what'?s\\s*up|sup|" +
-            "thanks?|thank\\s*you|who\\s*are\\s*you|what\\s*can\\s*you\\s*do|" +
-            "are\\s*you\\s*(there|ok|okay)|hi\\s*there|hello\\s*there)\\W*\\??\\s*$"
-    )
-
-    fun isConversational(goal: String): Boolean {
-        val g = goal.trim()
-        if (g.length > 140) return false
-        if (actionWords.containsMatchIn(g)) return false
-        if (conversational.containsMatchIn(g)) return true
-        // Short questions without any device verbs are also plain conversation.
-        return g.length <= 80 && g.endsWith("?") && !actionWords.containsMatchIn(g)
+    /** A pure "open <app>" request is handled instantly without inference. */
+    fun isPureOpen(goal: String): Boolean {
+        val g = goal.trim().lowercase()
+        val m = Regex("^(open|launch|start)\\s+(.+)$").find(g) ?: return false
+        val rest = m.groupValues[2].trim()
+        if (Regex("(?i)\\b(and|then|send|message|text|tell|reply|search|find|turn|set|for|with|to)\\b")
+                .containsMatchIn(rest)) return false
+        return rest.split(Regex("\\s+")).size <= 3
     }
+
+    /**
+     * True when this is a normal LLM request that needs no phone control.
+     * Greetings, questions, explanations, writing, coding, reasoning — all chat.
+     */
+    fun isChatOnly(goal: String): Boolean = !phoneAction.containsMatchIn(goal)
 }

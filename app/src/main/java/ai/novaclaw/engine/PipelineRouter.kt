@@ -28,6 +28,8 @@ object PipelineRouter {
         // to change something, fall through to the agent loop.
         val actionWords = Regex("(?i)\\b(open|turn|set|send|tap|click|install|enable|disable|change|navigate|search)\\b")
         if (actionWords.containsMatchIn(goal)) return Route.Agent
+        // "Why is my battery low?" needs reasoning, not a raw stat dump.
+        if (Regex("(?i)^\\s*(why|how|what if|should|can you explain)\\b").containsMatchIn(goal)) return Route.Agent
         return if (deviceInfoPatterns.any { Regex(it).containsMatchIn(goal) }) Route.DeviceInfo
         else Route.Agent
     }
