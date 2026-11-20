@@ -693,17 +693,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!activeAssistantContainer) return;
 
     const summary = document.createElement('div');
-    summary.className = 'pt-2 text-xs text-slate-200 leading-relaxed';
-    summary.innerHTML = `
-      <div class="p-3 rounded-2xl bg-[#1C1C1E] border ${res.isConversational ? 'border-purple-800/60' : 'border-[#2C2C2E]'}">
-        <div class="font-bold text-white flex items-center gap-1.5 mb-1">
-          <span>${res.isConversational ? '💬' : '✨'}</span> ${res.isConversational ? 'NovaClaw' : 'Done'}
-        </div>
-        <div class="text-slate-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(res.summary)}</div>
-      </div>
-    `;
+    summary.className = 'assistant-answer';
+    const label = res.isConversational ? '💬 NovaClaw' : '✨ Done';
+    const body = renderMarkdown(cleanAnswer(res.summary || ''));
+    summary.innerHTML = `<div class="assistant-label">${label}</div><div class="md-body">${body}</div>`;
     activeAssistantContainer.appendChild(summary);
     scrollToBottom();
+  }
+
+  /** Drop meta-commentary the small model sometimes emits instead of an answer. */
+  function cleanAnswer(text) {
+    let t = (text || '').trim();
+    t = t.replace(/^(the user (asked|wants|is asking)[^\n]*\n)+/i, '');
+    t = t.replace(/^(here is (the|a) (answer|result)[:\s]*)/i, '');
+    t = t.replace(/^(let me (think|reason)[^\n]*\n)/i, '');
+    return t.trim();
+  }
+
+  /** Small markdown renderer — escape first, then format. */
+  function renderMarkdown(text) {
+    let s = escapeHtml(text || '');
+    const codeBlocks = [];
+    s = s.replace(/```([\s\S]*?)```/g, (_, code) => {
+      codeBlocks.push(`<pre><code>${code.trim()}</code></pre>`);
+      return `\u0000CODE${codeBlocks.length - 1}\u0000`;
+    });
+    s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    s = s.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+    s = s.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+    s = s.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    s = s.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+    const lines = s.split('\n');
+    let out = '';
+    let listType = null;
+    function closeList() { if (listType) { out += `</${listType}>`; listType = null; } }
+    for (const line of lines) {
+      const ul = line.match(/^\s*[-*•]\s+(.*)$/);
+      const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+      if (ul || ol) {
+        const wanted = ul ? 'ul' : 'ol';
+        if (listType !== wanted) { closeList(); out += `<${wanted}>`; listType = wanted; }
+        out += `<li>${(ul || ol)[1]}</li>`;
+      } else {
+        closeList();
+        if (line.trim()) out += `<p>${line}</p>`;
+      }
+    }
+    closeList();
+    codeBlocks.forEach((block, i) => { out = out.replace(`\u0000CODE${i}\u0000`, block); });
+    return out;
   }
 
   function appendErrorToStream(errMsg) {

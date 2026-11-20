@@ -153,7 +153,20 @@ class LiteRTEngine(private val context: Context) {
 
         private suspend fun invoke(timeoutMs: Long, call: () -> Any): ModelReply =
             withContext(Dispatchers.Default) {
-                val result = withTimeoutOrNull(timeoutMs) { call() }
+                val result = try {
+                    withTimeoutOrNull(timeoutMs) { call() }
+                } catch (t: Throwable) {
+                    val m = t.message.orEmpty()
+                    val parseFailure = m.contains("parse FC", true) ||
+                        m.contains("ParseCancelled", true) ||
+                        m.contains("Failed to parse tool calls", true) ||
+                        m.contains("tool_call", true)
+                    if (parseFailure) {
+                        dirty = true
+                        return@withContext ModelReply(null, null, emptyList(), backendLabel, m.take(1000))
+                    }
+                    throw t
+                }
                 if (result == null) {
                     dirty = true
                     BackendSelector.noteFailure(context, RuntimeException("local inference timeout"))

@@ -132,16 +132,18 @@ class AgentLoop(
                 }
                 val backendLabel = if (cloud) "Gemini Flash (cloud)" else
                     engine.open(ModelCatalog.path(context, model), preferGpu = false)
-                val finishOnly = tools.specs.filter { it.name == "finish" }
+                // No tools at all in chat mode: avoids LiteRT function-call parse
+                // failures and stops the model trying to tap screen text.
+                val noTools = emptyList<ai.novaclaw.engine.ToolSpec>()
                 val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant. " +
-                    "Answer questions, explain, reason, write, code, translate and chat naturally. " +
-                    "Be helpful, accurate and appropriately concise. Think before you answer when needed. " +
-                    "Do NOT inspect or touch the phone screen — the user did not ask for a device action. " +
-                    "Return your answer as plain text, or put it in finish(summary=your answer)."
+                    "Answer the user directly: explain, reason, write, calculate or chat naturally. " +
+                    "Output ONLY the final answer as plain text. " +
+                    "Never narrate what the user asked, never restate the question, never describe your reasoning, " +
+                    "never output JSON or tool calls. Do not inspect or touch the phone."
                 val chatSession = if (cloud) {
-                    cloudEngine.openSession(key, CloudConfig.MODEL, chatSystem, finishOnly)
+                    cloudEngine.openSession(key, CloudConfig.MODEL, chatSystem, noTools)
                 } else {
-                    engine.openSession(chatSystem, finishOnly)
+                    engine.openSession(chatSystem, noTools)
                 }
                 session = chatSession
                 val context = history.recent(3)
@@ -153,7 +155,14 @@ class AgentLoop(
                     }
                     append("User: ").append(goal)
                 }
-                val reply = chatSession.send(chatPrompt)
+                var reply = chatSession.send(chatPrompt)
+                if (looksLikeMeta(reply.text)) {
+                    NovaLog.w(tag, "Model emitted meta-reasoning; retrying with strict answer prompt")
+                    reply = chatSession.send(
+                        "Give ONLY the final answer to: $goal\n" +
+                            "Do not narrate the question, your reasoning, or tool calls."
+                    )
+                }
                 val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
                 val answer = (reply.text ?: fromTool ?: "Hello! How can I help?").trim()
                 emit(AgentEvent.Thought(1, "Reasoning and answering — no phone action needed", backendLabel))
@@ -369,6 +378,15 @@ class AgentLoop(
             isRunning = false
             emit(AgentEvent.State("IDLE"))
         }
+    }
+
+    private fun looksLikeMeta(text: String?): Boolean {
+        if (text.isNullOrBlank()) return false
+        val t = text.trim()
+        return t.length < 300 && Regex(
+            "(?i)^(the user (asked|wants|is asking|said)|here is (the|a) (answer|result)|" +
+                "let me (think|reason)|i (need to|will) (answer|calculate|explain))"
+        ).containsMatchIn(t)
     }
 
     private fun describe(call: ai.novaclaw.model.ToolCall, snapshot: ScreenSnapshot?): String {
