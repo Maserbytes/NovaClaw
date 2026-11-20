@@ -14,7 +14,15 @@ object TaskShortcuts {
                 return Shortcut("system_key", mapOf<String, Any>("key" to "back"), "Pressed back")
         }
         val m = Regex("^(open|launch|start)\\s+(.+)$").find(g) ?: return null
-        val app = m.groupValues[2].trim()
-        return if (app.isNotBlank()) Shortcut("open_app", mapOf<String, Any>("app_name" to app), "Opened $app") else null
+        val rest = m.groupValues[2].trim()
+        // Only a pure "open <app>" is a shortcut. Any second action means the
+        // model must handle the whole task; otherwise we open the app and stop.
+        val extraActions = Regex(
+            "(?i)\\b(and|then|send|message|text|tell|reply|search|find|turn|set|" +
+                "enable|disable|check|read|for|with|to)\\b"
+        )
+        if (extraActions.containsMatchIn(rest)) return null
+        if (rest.split(Regex("\\s+")).size > 3) return null
+        return Shortcut("open_app", mapOf<String, Any>("app_name" to rest), "Opened $rest")
     }
 }

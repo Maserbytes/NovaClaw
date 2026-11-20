@@ -117,6 +117,41 @@ class AgentLoop(
                 return
             }
 
+            if (ConversationRouter.isConversational(goal)) {
+                NovaLog.decision(tag, "route", "conversation", "greeting or small talk — answer, do not touch the phone")
+                emit(AgentEvent.State("THINKING"))
+                val cloud = model.kind == ModelInfo.Kind.CLOUD
+                val key = if (cloud) CloudConfig.apiKey(context) else ""
+                if (cloud && key.isBlank()) {
+                    emit(AgentEvent.Error("Add a Gemini API key in Model Hub → Cloud / API to chat."))
+                    return
+                }
+                if (!cloud && !ModelCatalog.isInstalled(context, model)) {
+                    emit(AgentEvent.Error("Download a model in Model Hub → On-Device Models to chat."))
+                    return
+                }
+                val backendLabel = if (cloud) "Gemini Flash (cloud)" else
+                    engine.open(ModelCatalog.path(context, model), preferGpu = false)
+                val finishOnly = tools.specs.filter { it.name == "finish" }
+                val chatSystem = "You are NovaClaw, a friendly on-device AI assistant. " +
+                    "Answer the user's message directly and briefly. " +
+                    "Never inspect or tap the phone screen for a greeting or small talk. " +
+                    "Put your answer in finish(summary=your answer)."
+                val chatSession = if (cloud) {
+                    cloudEngine.openSession(key, CloudConfig.MODEL, chatSystem, finishOnly)
+                } else {
+                    engine.openSession(chatSystem, finishOnly)
+                }
+                session = chatSession
+                val reply = chatSession.send("User message: $goal")
+                val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
+                val answer = (reply.text ?: fromTool ?: "Hello! How can I help?").trim()
+                emit(AgentEvent.Thought(1, "Answering conversationally — no phone action needed", backendLabel))
+                history.append("nova", answer)
+                emit(AgentEvent.Complete(answer, true, 1))
+                return
+            }
+
             emit(AgentEvent.State("OBSERVING"))
             if (!NovaAccessibilityService.awaitReady() || NovaAccessibilityService.instance == null) {
                 val msg = "Accessibility service disconnected. Re-enable NovaClaw in Settings → Accessibility " +
@@ -173,6 +208,7 @@ class AgentLoop(
             val stuck = StuckDetector()
             val recentHistory = history.recent(3)
             val actionHistory = mutableListOf<String>()
+            var consecutiveFailures = 0
 
             for (step in 1..30) {
                 if (!isRunning || !scope.isActive) return
@@ -282,6 +318,17 @@ class AgentLoop(
                     step, result.success, result.message,
                     verification?.preFingerprint.orEmpty(), verification?.postFingerprint.orEmpty(),
                 ))
+
+                if (!result.success) {
+                    consecutiveFailures++
+                    if (consecutiveFailures >= 2) {
+                        NovaLog.w(tag, "Two consecutive tool failures: ${result.message}")
+                        emit(AgentEvent.Error("Stopped: two actions failed in a row — ${result.message}"))
+                        return
+                    }
+                } else {
+                    consecutiveFailures = 0
+                }
 
                 val signal = stuck.record(call.name, verification?.postFingerprint ?: "")
                 if (signal != null) {
