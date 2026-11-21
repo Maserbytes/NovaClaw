@@ -141,7 +141,7 @@ class AgentLoop(
                     "Never narrate what the user asked, never restate the question, never describe your reasoning, " +
                     "never output JSON or tool calls. Do not inspect or touch the phone."
                 val chatSession = if (cloud) {
-                    cloudEngine.openSession(key, CloudConfig.MODEL, chatSystem, noTools)
+                    openCloudWithFallback(key, chatSystem, noTools)
                 } else {
                     engine.openSession(chatSystem, noTools)
                 }
@@ -217,7 +217,7 @@ class AgentLoop(
             NovaLog.i(tag, "prompt composed playbook=${playbook?.id ?: "none"} tools=${selectedTools.map { it.name }}")
 
             session = if (isCloud) {
-                cloudEngine.openSession(cloudKey, CloudConfig.MODEL, systemPrompt, selectedTools)
+                openCloudWithFallback(cloudKey, systemPrompt, selectedTools)
             } else {
                 engine.openSession(systemPrompt, selectedTools)
             }
@@ -278,7 +278,7 @@ class AgentLoop(
                     emit(AgentEvent.Error("The model emitted a malformed tool call. Retrying with a fresh session."))
                     session!!.close()
                     session = if (isCloud) {
-                        cloudEngine.openSession(cloudKey, CloudConfig.MODEL, systemPrompt, selectedTools)
+                        openCloudWithFallback(cloudKey, systemPrompt, selectedTools)
                     } else {
                         engine.openSession(systemPrompt, selectedTools)
                     }
@@ -377,6 +377,31 @@ class AgentLoop(
             sessionStore.release()
             isRunning = false
             emit(AgentEvent.State("IDLE"))
+        }
+    }
+
+    private fun openCloudWithFallback(
+        key: String,
+        system: String,
+        tools: List<ToolSpec>,
+    ): ai.novaclaw.model.ReasoningSession {
+        var id = CloudConfig.model(context)
+        NovaLog.i(tag, "cloud model=$id")
+        return try {
+            cloudEngine.openSession(key, id, system, tools)
+        } catch (t: Throwable) {
+            if (!t.message.orEmpty().contains("MODEL_UNAVAILABLE", true)) throw t
+            NovaLog.w(tag, "Cloud model $id unavailable; trying ${CloudConfig.FALLBACK_MODEL}")
+            id = CloudConfig.FALLBACK_MODEL
+            CloudConfig.setModel(context, id)
+            try {
+                cloudEngine.openSession(key, id, system, tools)
+            } catch (t2: Throwable) {
+                if (t2.message.orEmpty().contains("MODEL_UNAVAILABLE", true)) {
+                    throw RuntimeException("No available Gemini model. Add a Gemini API key in Model Hub → Cloud / API.")
+                }
+                throw t2
+            }
         }
     }
 

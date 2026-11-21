@@ -107,9 +107,18 @@ class CloudEngine(private val context: Context) {
                 .build()
 
             client.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
+                var body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    throw RuntimeException("Gemini HTTP ${response.code}: ${body.take(200)}")
+                    val msg = runCatching {
+                        JsonParser.parseString(body).asJsonObject.getAsJsonObject("error")
+                            ?.get("message")?.asString.orEmpty()
+                    }.getOrDefault("")
+                    // If the model was retired, tell the caller to switch instead of
+                    // dumping a raw 404 into the chat.
+                    if (response.code == 404 && msg.contains("no longer available", true)) {
+                        throw RuntimeException("MODEL_UNAVAILABLE: ${msg.take(160)}")
+                    }
+                    throw RuntimeException("Gemini HTTP ${response.code}: ${(msg.ifBlank { body }).take(200)}")
                 }
                 val rootJson = JsonParser.parseString(body).asJsonObject
                 if (rootJson.has("error")) {
