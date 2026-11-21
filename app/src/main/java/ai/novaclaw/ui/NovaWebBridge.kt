@@ -82,14 +82,15 @@ class NovaWebBridge(private val activity: MainActivity) {
     @JavascriptInterface
     fun checkModelStatus(fileName: String): String {
         val model = ModelCatalog.LOCAL.firstOrNull { it.fileName == fileName }
-        val installed = model != null && ModelCatalog.isInstalled(context, model)
+        val file = if (model != null) runCatching { java.io.File(ModelCatalog.path(context, model)) }.getOrNull() else null
+        // Lenient status check: a real .litertlm file is at least tens of MB.
+        // Strict size/hash verification still happens before inference.
+        val installed = file != null && file.exists() && file.length() > 10L * 1024 * 1024
         return JSONObject().apply {
             put("installed", installed)
             put("fileName", fileName)
-            put("filePath", if (model != null && installed) ModelCatalog.path(context, model) else "")
-            put("fileSizeBytes", if (model != null && installed)
-                runCatching { java.io.File(ModelCatalog.path(context, model)).length() }.getOrDefault(0L)
-            else 0L)
+            put("filePath", if (installed) file!!.absolutePath else "")
+            put("fileSizeBytes", if (installed) file!!.length() else 0L)
         }.toString()
     }
 

@@ -11,6 +11,8 @@
 }
 
 * {
+  -webkit-tap-highlight-color: transparent;
+  outline: none !important;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -131,8 +133,10 @@ header { padding-top: 12px !important; }
   padding-bottom: 28px !important;
 }
 footer {
-  padding-bottom: 10px !important;
+  padding-bottom: 8px !important;
 }
+input, textarea, button { outline: none !important; box-shadow: none !important; }
+input:focus, textarea:focus, button:focus { outline: none !important; box-shadow: none !important; }
 
 /* ChatGPT-style answer blocks */
 .assistant-answer {

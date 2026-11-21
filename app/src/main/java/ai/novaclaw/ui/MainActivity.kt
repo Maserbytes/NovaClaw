@@ -105,11 +105,19 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(bridge, "AndroidBridge")
 
         // Android 15 edge-to-edge: keep the chat input above the navigation bar.
-        // Let Android lay the WebView out between the status bar and the keyboard.
-        // With adjustResize, opening the keyboard shrinks the WebView and the
-        // composer (a flex footer) stays visible above it.
+        // A fitsSystemWindows root receives status-bar / nav-bar / keyboard insets
+        // and pads the WebView accordingly. Combined with adjustResize, the
+        // composer stays above both the nav bar and the keyboard.
         WindowCompat.setDecorFitsSystemWindows(window, true)
-        setContentView(webView)
+        val root = android.widget.FrameLayout(this).apply {
+            fitsSystemWindows = true
+            setBackgroundColor(0xFF0D0D0D.toInt())
+            addView(webView, android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+        webView.setDefaultFocusHighlightEnabled(false)
+        setContentView(root)
         webView.loadUrl("file:///android_asset/index.html")
 
         if (!NovaAccessibilityService.isEnabled(this)) {

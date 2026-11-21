@@ -82,7 +82,7 @@ class ModelEngine {
       this.geminiApiKey = 'saved-in-native-storage';
     }
     this.ollamaEndpoint = 'http://localhost:11434';
-    this.selectedModelId = options.modelId || 'gemma-4-2b-it';
+    this.selectedModelId = options.modelId || (this.geminiApiKey ? 'api-gemini' : 'gemma-4-2b-it');
     this.temperature = options.temperature || 0.2;
     this.isLoaded = true;
   }
