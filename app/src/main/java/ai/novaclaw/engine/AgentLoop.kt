@@ -68,6 +68,7 @@ class AgentLoop(
 
     private var job: Job? = null
     private var pendingApproval: CompletableDeferred<Boolean>? = null
+    private var session: ai.novaclaw.model.ReasoningSession? = null
 
     fun start(goal: String, model: ModelInfo) {
         if (isRunning) return
@@ -100,7 +101,7 @@ class AgentLoop(
             isRunning = false
             return
         }
-        var session: ReasoningSession? = null
+        session = null
         try {
             history.append("user", goal)
 
