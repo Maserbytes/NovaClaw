@@ -120,9 +120,7 @@ html, body {
 html, body { height: 100%; overflow: hidden; }
 body { display: flex; flex-direction: column; }
 header, footer { flex-shrink: 0; }
-header {
-  padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
-}
+header { padding-top: 12px !important; }
 #chatViewport {
   flex: 1 1 auto !important;
   min-height: 0 !important;
@@ -133,7 +131,7 @@ header {
   padding-bottom: 28px !important;
 }
 footer {
-  padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: 10px !important;
 }
 
 /* ChatGPT-style answer blocks */

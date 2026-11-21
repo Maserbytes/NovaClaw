@@ -18,9 +18,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -107,18 +105,10 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(bridge, "AndroidBridge")
 
         // Android 15 edge-to-edge: keep the chat input above the navigation bar.
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
-            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            val status = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            // Let the WebView extend under the status bar (dark background blends),
-            // but push its content below it via the CSS env(safe-area-inset-top).
-            view.setPadding(0, status.top, 0, nav.bottom)
-            insets
-        }
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(false)
-        }
+        // Let Android lay the WebView out between the status bar and the keyboard.
+        // With adjustResize, opening the keyboard shrinks the WebView and the
+        // composer (a flex footer) stays visible above it.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(webView)
         webView.loadUrl("file:///android_asset/index.html")
 

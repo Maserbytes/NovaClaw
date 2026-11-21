@@ -155,12 +155,13 @@ class AgentLoop(
                     }
                     append("User: ").append(goal)
                 }
-                var reply = chatSession.send(chatPrompt)
+                var reply = sendWithCloudFallback(chatPrompt, chatSystem, noTools, cloud)
                 if (looksLikeMeta(reply.text)) {
                     NovaLog.w(tag, "Model emitted meta-reasoning; retrying with strict answer prompt")
-                    reply = chatSession.send(
+                    reply = sendWithCloudFallback(
                         "Give ONLY the final answer to: $goal\n" +
-                            "Do not narrate the question, your reasoning, or tool calls."
+                            "Do not narrate the question, your reasoning, or tool calls.",
+                        chatSystem, noTools, cloud
                     )
                 }
                 val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
@@ -271,7 +272,7 @@ class AgentLoop(
                     return
                 }
 
-                val reply = session!!.send(prompt)
+                val reply = sendWithCloudFallback(prompt, systemPrompt, selectedTools, isCloud)
                 if (reply.hasDroppedToolCall) {
                     NovaLog.w(tag, "Malformed tool call detected; rebuilding conversation")
                     session!!.markDirty()
@@ -390,18 +391,76 @@ class AgentLoop(
         return try {
             cloudEngine.openSession(key, id, system, tools)
         } catch (t: Throwable) {
-            if (!t.message.orEmpty().contains("MODEL_UNAVAILABLE", true)) throw t
-            NovaLog.w(tag, "Cloud model $id unavailable; trying ${CloudConfig.FALLBACK_MODEL}")
-            id = CloudConfig.FALLBACK_MODEL
-            CloudConfig.setModel(context, id)
-            try {
-                cloudEngine.openSession(key, id, system, tools)
-            } catch (t2: Throwable) {
-                if (t2.message.orEmpty().contains("MODEL_UNAVAILABLE", true)) {
-                    throw RuntimeException("No available Gemini model. Add a Gemini API key in Model Hub → Cloud / API.")
+            val msg = t.message.orEmpty()
+            // Model retired → try the fallback model name once.
+            if (msg.contains("MODEL_UNAVAILABLE", true)) {
+                NovaLog.w(tag, "Cloud model $id retired; trying ${CloudConfig.FALLBACK_MODEL}")
+                id = CloudConfig.FALLBACK_MODEL
+                CloudConfig.setModel(context, id)
+                try {
+                    return cloudEngine.openSession(key, id, system, tools)
+                } catch (t2: Throwable) {
+                    return useLocalFallback(t2, system, tools)
                 }
-                throw t2
             }
+            useLocalFallback(t, system, tools)
+        }
+    }
+
+    /** If the cloud key is invalid or the network times out, answer with local Gemma instead. */
+    private fun useLocalFallback(
+        cause: Throwable,
+        system: String,
+        tools: List<ToolSpec>,
+    ): ai.novaclaw.model.ReasoningSession {
+        val msg = cause.message.orEmpty()
+        val recoverable = msg.contains("API_KEY_INVALID", true) ||
+            msg.contains("API key not valid", true) ||
+            msg.contains("timeout", true) ||
+            msg.contains("HTTP 5", true)
+        if (!recoverable) throw cause
+
+        val local = ModelCatalog.recommended(context)
+        if (!ModelCatalog.isInstalled(context, local)) {
+            throw RuntimeException(
+                "Cloud failed (${msg.take(80)}) and no local model is installed. " +
+                    "Add a valid Gemini key or download Gemma 4 in Model Hub."
+            )
+        }
+        NovaLog.w(tag, "Cloud failed; switching to local ${local.id}: ${msg.take(100)}")
+        emit(AgentEvent.Thought(0, "Cloud unavailable — switching to on-device Gemma 4", "fallback"))
+        engine.open(ModelCatalog.path(context, local), preferGpu = false)
+        return engine.openSession(system, tools)
+    }
+
+    private suspend fun sendWithCloudFallback(
+        prompt: String,
+        system: String,
+        tools: List<ToolSpec>,
+        isCloud: Boolean,
+    ): ai.novaclaw.model.ModelReply {
+        return try {
+            session!!.send(prompt)
+        } catch (t: Throwable) {
+            val msg = t.message.orEmpty()
+            val recoverable = isCloud && (
+                msg.contains("API_KEY_INVALID", true) ||
+                    msg.contains("API key not valid", true) ||
+                    msg.contains("timeout", true) ||
+                    msg.contains("HTTP 5", true)
+                )
+            if (!recoverable) throw t
+            val local = ModelCatalog.recommended(context)
+            if (!ModelCatalog.isInstalled(context, local)) {
+                throw RuntimeException("Cloud failed (${msg.take(80)}) and no local model is installed. " +
+                    "Add a valid Gemini key or download Gemma 4 in Model Hub.")
+            }
+            NovaLog.w(tag, "Cloud inference failed, falling back to local: ${msg.take(100)}")
+            emit(AgentEvent.Thought(0, "Cloud unavailable — using on-device Gemma 4", "fallback"))
+            session?.close()
+            engine.open(ModelCatalog.path(context, local), preferGpu = false)
+            session = engine.openSession(system, tools)
+            session!!.send(prompt)
         }
     }
 

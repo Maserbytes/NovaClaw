@@ -118,6 +118,9 @@ class CloudEngine(private val context: Context) {
                     if (response.code == 404 && msg.contains("no longer available", true)) {
                         throw RuntimeException("MODEL_UNAVAILABLE: ${msg.take(160)}")
                     }
+                    if (response.code == 400 && msg.contains("API key not valid", true)) {
+                        throw RuntimeException("API_KEY_INVALID: ${msg.take(160)}")
+                    }
                     throw RuntimeException("Gemini HTTP ${response.code}: ${(msg.ifBlank { body }).take(200)}")
                 }
                 val rootJson = JsonParser.parseString(body).asJsonObject
