@@ -133,18 +133,21 @@ class AgentLoop(
                 }
                 val backendLabel = if (cloud) "Gemini Flash (cloud)" else
                     engine.open(ModelCatalog.path(context, model), preferGpu = false)
-                // No tools at all in chat mode: avoids LiteRT function-call parse
-                // failures and stops the model trying to tap screen text.
-                val noTools = emptyList<ai.novaclaw.engine.ToolSpec>()
+                // Chat mode keeps only non-visual tools: it can answer normally,
+                // but can also send a message / open an app if the user asks.
+                val chatTools = tools.specs.filter {
+                    it.name in setOf("finish", "send_message", "open_app", "get_device_info")
+                }
                 val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant. " +
                     "Answer the user directly: explain, reason, write, calculate or chat naturally. " +
-                    "Output ONLY the final answer as plain text. " +
-                    "Never narrate what the user asked, never restate the question, never describe your reasoning, " +
-                    "never output JSON or tool calls. Do not inspect or touch the phone."
+                    "You DO have phone tools: send_message(to,text), open_app(app_name), get_device_info. " +
+                    "If the user asks you to actually send a message or open an app, call that tool instead of saying you cannot. " +
+                    "For normal questions, answer in plain text. " +
+                    "Never narrate the question or your reasoning."
                 val chatSession = if (cloud) {
-                    openCloudWithFallback(key, chatSystem, noTools)
+                    openCloudWithFallback(key, chatSystem, chatTools)
                 } else {
-                    engine.openSession(chatSystem, noTools)
+                    engine.openSession(chatSystem, chatTools)
                 }
                 session = chatSession
                 val context = history.recent(3)
@@ -156,7 +159,7 @@ class AgentLoop(
                     }
                     append("User: ").append(goal)
                 }
-                var reply = sendWithCloudFallback(chatPrompt, chatSystem, noTools, cloud)
+                var reply = sendWithCloudFallback(chatPrompt, chatSystem, chatTools, cloud)
                 if (looksLikeMeta(reply.text)) {
                     NovaLog.w(tag, "Model emitted meta-reasoning; retrying with strict answer prompt")
                     reply = sendWithCloudFallback(
@@ -167,7 +170,7 @@ class AgentLoop(
                 }
                 val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
                 val answer = (reply.text ?: fromTool ?: "Hello! How can I help?").trim()
-                emit(AgentEvent.Thought(1, "Reasoning and answering — no phone action needed", backendLabel))
+                emit(AgentEvent.Thought(1, thoughtFor(reply, "Reasoning and answering — no phone action needed"), backendLabel))
                 history.append("nova", answer)
                 emit(AgentEvent.Complete(answer, true, 1))
                 return
@@ -288,7 +291,7 @@ class AgentLoop(
                     continue
                 }
                 val thought = reply.thought ?: reply.text ?: "Choosing the next action…"
-                emit(AgentEvent.Thought(step, thought, backend))
+                emit(AgentEvent.Thought(step, thoughtFor(reply, thought), backend))
                 NovaLog.d(tag, "step=$step thought='${thought.take(120)}' toolCalls=${reply.toolCalls.size}")
 
                 val call = reply.toolCalls.firstOrNull()
@@ -498,6 +501,14 @@ class AgentLoop(
             session = engine.openSession(system, tools)
             session!!.send(prompt)
         }
+    }
+
+    private fun thoughtFor(reply: ai.novaclaw.model.ModelReply, fallback: String): String {
+        val show = context.getSharedPreferences("nova_settings", android.content.Context.MODE_PRIVATE)
+            .getBoolean("show_thinking", false)
+        if (!show) return fallback
+        val reasoning = reply.thought?.trim()
+        return if (reasoning.isNullOrBlank()) fallback else "$fallback\n\nModel reasoning:\n${reasoning.take(600)}"
     }
 
     private fun looksLikeMeta(text: String?): Boolean {

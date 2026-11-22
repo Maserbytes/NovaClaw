@@ -70,36 +70,6 @@
         </span>
       </button>
 
-      <!-- Safety Shield -->
-      <button id="drawerSafetyBtn" class="w-full p-2.5 rounded-xl hover:bg-[#262626] text-left flex items-center justify-between transition-all group">
-        <div class="flex items-center gap-3">
-          <span class="text-base text-slate-400 group-hover:text-white">🛡️</span>
-          <span>Quad-Shield Safety</span>
-        </div>
-        <span class="text-[10px] text-emerald-400 font-semibold">Active</span>
-      </button>
-
-      <div class="pt-3 pb-1">
-        <hr class="border-[#262626]">
-      </div>
-
-      <!-- Recent Tasks Header -->
-      <div class="px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-        Sample Tasks
-      </div>
-
-      <!-- Recent Task Items -->
-      <div id="recentTasksList" class="space-y-0.5">
-        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open Settings and turn on Battery Saver">
-          🔋 Settings: Turn on Battery Saver
-        </button>
-        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
-          💬 WhatsApp: Message Sarah
-        </button>
-        <button class="w-full p-2 rounded-lg hover:bg-[#262626] text-left text-xs text-slate-300 truncate block chatgpt-suggestion-btn" data-prompt="Open Uber Eats and search for iced latte">
-          ☕ Uber Eats: Iced Latte Order
-        </button>
-      </div>
 
     </div>
 
@@ -193,31 +163,6 @@
         Where should we start?
       </h1>
 
-      <div class="space-y-3">
-        <!-- Suggestion 1 -->
-        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Settings and turn on Battery Saver">
-          <span class="text-xl">🔋</span>
-          <span class="text-sm text-slate-300 group-hover:text-white">Turn on Battery Saver in Settings</span>
-        </button>
-
-        <!-- Suggestion 2 -->
-        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open WhatsApp and send message to Sarah saying 'Let\'s meet at 5'">
-          <span class="text-xl">💬</span>
-          <span class="text-sm text-slate-300 group-hover:text-white">Send message to Sarah on WhatsApp</span>
-        </button>
-
-        <!-- Suggestion 3 -->
-        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Uber Eats and search for iced latte">
-          <span class="text-xl">☕</span>
-          <span class="text-sm text-slate-300 group-hover:text-white">Order iced latte on Uber Eats</span>
-        </button>
-
-        <!-- Suggestion 4 -->
-        <button class="chatgpt-suggestion-row group w-full text-left" data-prompt="Open Bank Wallet and delete all bank accounts">
-          <span class="text-xl">🛡️</span>
-          <span class="text-sm text-rose-400 group-hover:text-rose-300">Test Quad-Shield Safety Interceptor</span>
-        </button>
-      </div>
     </div>
 
     <!-- Active Message Stream (Appears once conversation starts) -->
@@ -435,6 +380,32 @@
           </div>
         </div>
 
+        <!-- Qwen 3.5 4B -->
+        <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2.5">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Qwen 3.5 4B</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 font-normal">Strong reasoning</span>
+              </div>
+              <div class="text-[11px] text-slate-400">LiteRT-LM • 2.75 GB • CPU • 8 GB+ RAM</div>
+            </div>
+            <span id="qwenStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Not Installed</span>
+          </div>
+          <div id="qwenDownloadProgressBox" class="hidden space-y-1.5 pt-1">
+            <div class="w-full bg-[#1C1C1E] rounded-full h-2 overflow-hidden border border-[#3A3A3C]">
+              <div id="qwenProgressBar" class="bg-emerald-600 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="qwenProgressText">0 MB / 2.75 GB (0%)</span>
+              <span id="qwenProgressStatus" class="text-emerald-400">Downloading...</span>
+            </div>
+          </div>
+          <button id="downloadQwenBtn" class="w-full py-2 bg-[#333333] hover:bg-[#3D3D3D] text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all">
+            <span>⬇️</span><span id="downloadQwenBtnText">Download Qwen 3.5 4B (2.75 GB)</span>
+          </button>
+        </div>
+
       </div>
 
       <button id="doneModelModalBtn" class="w-full py-2.5 bg-white text-black font-bold rounded-xl shadow">
@@ -495,6 +466,11 @@
         '</div>' +
         '<div class="text-[9px] text-slate-500">CPU is the default: Gemma 4 field tests show GPU backends can corrupt tool-call arguments on some chipsets.</div>' +
         '<div class="pt-2 border-t border-[#333333] flex items-center justify-between">' +
+          '<div><div class="text-white text-xs font-semibold">Show model reasoning</div>' +
+          '<div class="text-[9px] text-slate-500">Reveal thought process in chat</div></div>' +
+          '<button id="showThinkingBtn" class="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-[#333333] text-slate-300">Off</button>' +
+        '</div>' +
+        '<div class="pt-2 border-t border-[#333333] flex items-center justify-between">' +
           '<div><div class="text-white text-xs font-semibold">External automation</div>' +
           '<div class="text-[9px] text-slate-500">Allow Tasker / MacroDroid to start tasks</div></div>' +
           '<button id="externalAutomationBtn" class="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-[#333333] text-slate-300">Off</button>' +
@@ -531,6 +507,38 @@
         try { el.textContent = window.AndroidBridge.getBackendState(); }
         catch (e) { el.textContent = 'Error: ' + e.message; }
       }
+
+      var qwenBtn = document.getElementById('downloadQwenBtn');
+      if (qwenBtn) qwenBtn.addEventListener('click', function () {
+        if (typeof AVAILABLE_MODELS === 'undefined' || !window.AndroidBridge ||
+            !window.AndroidBridge.downloadModel) return;
+        var m = AVAILABLE_MODELS.find(function (x) { return x.id === 'qwen-3.5-4b'; });
+        if (!m) return;
+        var id = window.AndroidBridge.downloadModel(m.downloadUrl, m.fileName);
+        if (id > 0) {
+          qwenBtn.disabled = true;
+          var bt = document.getElementById('downloadQwenBtnText');
+          if (bt) bt.textContent = 'Starting Download...';
+        }
+      });
+
+      var thinkBtn = document.getElementById('showThinkingBtn');
+      function refreshThinking() {
+        if (!thinkBtn) return;
+        var on = !!(window.AndroidBridge && window.AndroidBridge.getShowThinking &&
+          window.AndroidBridge.getShowThinking());
+        thinkBtn.textContent = on ? 'On' : 'Off';
+        thinkBtn.className = on
+          ? 'px-2.5 py-1 rounded-xl text-[10px] font-bold bg-purple-600 text-white'
+          : 'px-2.5 py-1 rounded-xl text-[10px] font-bold bg-[#333333] text-slate-300';
+      }
+      if (thinkBtn) thinkBtn.addEventListener('click', function () {
+        if (!window.AndroidBridge || !window.AndroidBridge.setShowThinking) return;
+        var next = !window.AndroidBridge.getShowThinking();
+        window.AndroidBridge.setShowThinking(next);
+        refreshThinking();
+      });
+      refreshThinking();
 
       var extBtn = document.getElementById('externalAutomationBtn');
       function refreshExternal() {

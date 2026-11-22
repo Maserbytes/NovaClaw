@@ -528,6 +528,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (downloadE4bBtnText) downloadE4bBtnText.textContent = 'Retry Download Gemma 4 E4B';
       }
+    } else if (data.fileName && data.fileName.includes('Qwen')) {
+      const box = document.getElementById('qwenDownloadProgressBox');
+      const bar = document.getElementById('qwenProgressBar');
+      const txt = document.getElementById('qwenProgressText');
+      const st = document.getElementById('qwenProgressStatus');
+      const badge = document.getElementById('qwenStatusBadge');
+      const btnText = document.getElementById('downloadQwenBtnText');
+      if (box) box.classList.remove('hidden');
+      if (bar) bar.style.width = `${percent}%`;
+      if (txt) txt.textContent = `${mbSoFar} MB / ${mbTotal} MB (${percent}%)`;
+      if (st) st.textContent = data.status;
+      if (data.status === 'SUCCESSFUL') {
+        if (badge) badge.textContent = 'Installed';
+        if (btnText) btnText.textContent = 'Active Model (Installed)';
+      } else if (data.status && data.status.indexOf('FAILED') === 0) {
+        if (badge) badge.textContent = 'Failed';
+        if (btnText) btnText.textContent = 'Retry Download Qwen 3.5 4B';
+      }
     } else if (data.fileName && (data.fileName.includes('E2B') || data.fileName.includes('gemma'))) {
       if (gemmaDownloadProgressBox) gemmaDownloadProgressBox.classList.remove('hidden');
       if (gemmaProgressBar) gemmaProgressBar.style.width = `${percent}%`;

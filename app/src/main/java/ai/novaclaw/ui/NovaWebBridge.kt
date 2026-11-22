@@ -228,6 +228,17 @@ class NovaWebBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun getShowThinking(): Boolean =
+        context.getSharedPreferences("nova_settings", Context.MODE_PRIVATE)
+            .getBoolean("show_thinking", false)
+
+    @JavascriptInterface
+    fun setShowThinking(value: Boolean) {
+        context.getSharedPreferences("nova_settings", Context.MODE_PRIVATE)
+            .edit().putBoolean("show_thinking", value).apply()
+    }
+
+    @JavascriptInterface
     fun setCloudApiKey(key: String) = ai.novaclaw.model.CloudConfig.setApiKey(context, key)
 
     @JavascriptInterface

@@ -39,6 +39,15 @@ object ModelCatalog {
         minRamGb = 10,
     )
 
+    val QWEN_35_4B = ModelInfo(
+        id = "qwen3.5-4b",
+        name = "Qwen 3.5 4B (on-device)",
+        fileName = "Qwen3.5-4B_mixed_int4.litertlm",
+        url = "https://huggingface.co/litert-community/Qwen3.5-4B/resolve/main/Qwen3.5-4B_mixed_int4.litertlm",
+        sizeBytes = 2_754_166_784L,
+        minRamGb = 8,
+    )
+
     val GEMINI = ModelInfo(
         id = "gemini-flash",
         name = "Gemini Flash (cloud)",
@@ -49,7 +58,7 @@ object ModelCatalog {
         kind = ModelInfo.Kind.CLOUD,
     )
 
-    val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B)
+    val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B, QWEN_35_4B)
 
     fun byId(id: String): ModelInfo? = LOCAL.firstOrNull {
         it.id.equals(id, ignoreCase = true) ||

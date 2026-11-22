@@ -67,7 +67,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Google AI Edge — on-device Gemma 4 inference with native tool calling.
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.10.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.0")
 
     testImplementation("junit:junit:4.13.2")
 }
