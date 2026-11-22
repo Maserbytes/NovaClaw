@@ -447,14 +447,49 @@ class AgentLoop(
             val recoverable = isCloud && (
                 msg.contains("API_KEY_INVALID", true) ||
                     msg.contains("API key not valid", true) ||
+                    msg.contains("RATE_LIMITED", true) ||
+                    msg.contains("MODEL_OVERLOADED", true) ||
+                    msg.contains("quota", true) ||
+                    msg.contains("high demand", true) ||
+                    msg.contains("overloaded", true) ||
                     msg.contains("timeout", true) ||
                     msg.contains("HTTP 5", true)
                 )
             if (!recoverable) throw t
+
+            // Overload / rate limit: try the alternate Gemini model once first.
+            val overloaded = msg.contains("MODEL_OVERLOADED", true) ||
+                msg.contains("RATE_LIMITED", true) ||
+                msg.contains("high demand", true) ||
+                msg.contains("overloaded", true) ||
+                msg.contains("HTTP 503", true)
+            if (overloaded) {
+                val current = CloudConfig.model(context)
+                val alternate = if (current == CloudConfig.FALLBACK_MODEL)
+                    CloudConfig.PREFERRED_MODEL else CloudConfig.FALLBACK_MODEL
+                NovaLog.w(tag, "Cloud overloaded on $current; retrying with $alternate")
+                emit(AgentEvent.Thought(0, "Gemini is busy — trying another model", "fallback"))
+                CloudConfig.setModel(context, alternate)
+                session?.close()
+                session = cloudEngine.openSession(
+                    CloudConfig.apiKey(context), alternate, system, tools)
+                try {
+                    return session!!.send(prompt)
+                } catch (again: Throwable) {
+                    NovaLog.w(tag, "Alternate model also failed: ${again.message?.take(100)}")
+                }
+            }
+
             val local = ModelCatalog.recommended(context)
             if (!ModelCatalog.isInstalled(context, local)) {
-                throw RuntimeException("Cloud failed (${msg.take(80)}) and no local model is installed. " +
-                    "Add a valid Gemini key or download Gemma 4 in Model Hub.")
+                throw RuntimeException(
+                    if (overloaded)
+                        "Gemini is at capacity right now (HTTP 503 high demand). " +
+                            "Try again in a moment, or download Gemma 4 in Model Hub for offline answers."
+                    else
+                        "Cloud failed (${msg.take(80)}) and no local model is installed. " +
+                            "Add a valid Gemini key or download Gemma 4 in Model Hub."
+                )
             }
             NovaLog.w(tag, "Cloud inference failed, falling back to local: ${msg.take(100)}")
             emit(AgentEvent.Thought(0, "Cloud unavailable — using on-device Gemma 4", "fallback"))

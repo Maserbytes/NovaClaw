@@ -121,6 +121,16 @@ class CloudEngine(private val context: Context) {
                     if (response.code == 400 && msg.contains("API key not valid", true)) {
                         throw RuntimeException("API_KEY_INVALID: ${msg.take(160)}")
                     }
+                    if (response.code == 429 || msg.contains("quota", true) ||
+                        msg.contains("rate limit", true) || msg.contains("resource exhausted", true)
+                    ) {
+                        throw RuntimeException("RATE_LIMITED: ${msg.take(160)}")
+                    }
+                    if (response.code == 503 || msg.contains("overloaded", true) ||
+                        msg.contains("high demand", true) || msg.contains("try again later", true)
+                    ) {
+                        throw RuntimeException("MODEL_OVERLOADED: ${msg.take(160)}")
+                    }
                     throw RuntimeException("Gemini HTTP ${response.code}: ${(msg.ifBlank { body }).take(200)}")
                 }
                 val rootJson = JsonParser.parseString(body).asJsonObject
