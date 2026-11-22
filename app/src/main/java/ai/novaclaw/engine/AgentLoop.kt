@@ -165,7 +165,7 @@ class AgentLoop(
                     reply = sendWithCloudFallback(
                         "Give ONLY the final answer to: $goal\n" +
                             "Do not narrate the question, your reasoning, or tool calls.",
-                        chatSystem, noTools, cloud
+                        chatSystem, chatTools, cloud
                     )
                 }
                 val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
