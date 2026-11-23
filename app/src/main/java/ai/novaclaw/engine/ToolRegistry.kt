@@ -33,6 +33,10 @@ class ToolRegistry(private val context: Context) {
             "Key", mapOf("key" to "back, home or enter"), listOf("key"))),
         ToolSpec("get_device_info", "Read battery, RAM, storage, network and device facts instantly.", ToolSpec.obj(
             "No arguments")),
+        ToolSpec("web_search", "Search the live web for current information. Returns titles, links and snippets.", ToolSpec.obj(
+            "Query", mapOf("query" to "Search query"), listOf("query"))),
+        ToolSpec("fetch_url", "Read a web page as plain text.", ToolSpec.obj(
+            "URL", mapOf("url" to "http/https URL"), listOf("url"))),
         ToolSpec("get_notifications", "Read current notifications.", ToolSpec.obj("No arguments")),
         ToolSpec("get_installed_apps", "List installed apps with their labels and packages.", ToolSpec.obj("No arguments")),
         ToolSpec("get_clipboard", "Read the clipboard.", ToolSpec.obj("No arguments")),
@@ -104,6 +108,10 @@ class ToolRegistry(private val context: Context) {
             }
 
             "get_device_info" -> ActionOutcome(true, DeviceInfoTool.read(context), "", "", 0L)
+            "web_search" -> ActionOutcome(true,
+                WebSearchTool.search(args["query"]?.toString().orEmpty()), "", "", 0L)
+            "fetch_url" -> ActionOutcome(true,
+                WebSearchTool.fetch(args["url"]?.toString().orEmpty()), "", "", 0L)
             "get_notifications" -> ActionOutcome(true, DeviceTools.notifications(), "", "", 0L)
             "get_installed_apps" -> ActionOutcome(true, DeviceTools.installedApps(context), "", "", 0L)
             "get_clipboard" -> ActionOutcome(true, DeviceTools.clipboardGet(context), "", "", 0L)

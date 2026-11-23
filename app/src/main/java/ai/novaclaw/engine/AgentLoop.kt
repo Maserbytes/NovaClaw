@@ -133,16 +133,17 @@ class AgentLoop(
                 }
                 val backendLabel = if (cloud) "Gemini Flash (cloud)" else
                     engine.open(ModelCatalog.path(context, model), preferGpu = false)
-                // Chat mode keeps only non-visual tools: it can answer normally,
-                // but can also send a message / open an app if the user asks.
-                val chatTools = tools.specs.filter {
-                    it.name in setOf("finish", "send_message", "open_app", "get_device_info")
-                }
-                val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant. " +
+                // One toolset everywhere: the model chats normally, and switches
+                // to any phone/web tool the moment the user instructs it to.
+                val chatTools = tools.specs
+                val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant with full tool access. " +
                     "Answer the user directly: explain, reason, write, calculate or chat naturally. " +
-                    "You DO have phone tools: send_message(to,text), open_app(app_name), get_device_info. " +
-                    "If the user asks you to actually send a message or open an app, call that tool instead of saying you cannot. " +
-                    "For normal questions, answer in plain text. " +
+                    "You HAVE all tools: phone control (open_app, tap_node, t, scroll, system_key, send_message), " +
+                    "device data (get_device_info, get_notifications, get_clipboard), web (web_search, fetch_url), " +
+                    "memory (kb_*) and finish. Never claim you lack a capability. " +
+                    "For a normal question or chat, answer in plain text via finish. " +
+                    "When the user instructs an action (send a message, open/search in an app, look something up online), " +
+                    "call the right tool instead of only talking about it. " +
                     "Never narrate the question or your reasoning."
                 val chatSession = if (cloud) {
                     openCloudWithFallback(key, chatSystem, chatTools)

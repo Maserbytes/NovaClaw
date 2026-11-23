@@ -25,8 +25,8 @@ object ToolSelector {
             g.contains("send ") || g.contains("message ") || g.contains("reply ") || g.contains("tell ") ->
                 pick("send_message", "open_app", "finish")
             else ->
-                pick("open_app", "tap_node", "t", "scroll", "system_key", "finish")
+                pick("open_app", "tap_node", "t", "scroll", "system_key", "web_search", "finish")
         }
-        return selected.ifEmpty { pick("open_app", "tap_node", "t", "scroll", "system_key", "finish") }
+        return selected.ifEmpty { pick("open_app", "tap_node", "t", "scroll", "system_key", "web_search", "finish") }
     }
 }
