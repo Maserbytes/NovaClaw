@@ -31,7 +31,7 @@ object WebSearchTool {
                         val block = m.groupValues[1]
                         fun tag(name: String) = Regex("""<$name>([\s\S]*?)</$name>""")
                             .find(block)?.groupValues?.get(1)
-                            ?.replace("<![CDATA[", "").replace("]]>", "").trim().orEmpty()
+                            ?.replace("<![CDATA[", "")?.replace("]]>", "")?.trim().orEmpty()
                         val title = tag("title")
                         val link = tag("link")
                         val desc = tag("description")
