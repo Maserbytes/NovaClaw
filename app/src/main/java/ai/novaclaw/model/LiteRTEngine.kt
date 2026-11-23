@@ -206,19 +206,35 @@ class LiteRTEngine(private val context: Context) {
 
         if (msg != null) {
             runCatching { msg.toolCalls?.forEach { calls.add(ToolCall(it.name, normalize(it.arguments))) } }
+            // Message.channels is a public property in LiteRT-LM 0.19.
             runCatching {
-                val channels = msg.javaClass.getMethod("getChannels").invoke(msg) as? Map<*, *>
-                thought = channels?.get("thought")?.toString()?.trim()?.ifEmpty { null }
+                val channels = msg.channels
+                thought = channels["thought"]?.trim()?.ifEmpty { null }
+                    ?: channels["thinking"]?.trim()?.ifEmpty { null }
             }
-            runCatching {
-                val value = msg.javaClass.getMethod("getText").invoke(msg)
-                text = value?.toString()?.trim()?.ifEmpty { null }
+            // Message.toString() delegates to Contents.toString(), which joins
+            // every Content.Text — this is the reliable answer source.
+            runCatching { raw = msg.toString() }
+            if (raw.isBlank()) runCatching { raw = msg.contents?.toString().orEmpty() }
+            if (raw.isBlank()) {
+                runCatching {
+                    val contents = msg.javaClass.getMethod("getContents").invoke(msg)
+                    val list = contents?.javaClass?.getMethod("getContents")?.invoke(contents) as? List<*>
+                    raw = list?.joinToString("") { it?.toString().orEmpty() }.orEmpty()
+                }
             }
-            runCatching { raw = msg.contents?.toString().orEmpty() }
         } else {
             raw = message.toString()
         }
         if (text == null && raw.isNotBlank()) text = raw.trim()
+        // Some builds put the final answer in a non-"thought" channel.
+        if (text == null && msg != null) {
+            runCatching {
+                val other = msg.channels.filterKeys { it != "thought" && it != "thinking" }
+                    .values.joinToString("\n").trim()
+                if (other.isNotBlank()) text = other
+            }
+        }
 
         // Extract thinking tags if not provided by native channels
         if (thought.isNullOrBlank()) {

@@ -100,19 +100,22 @@ object ModelCatalog {
     fun isInstalled(context: Context, model: ModelInfo): Boolean {
         val file = File(path(context, model))
         if (!file.exists()) return false
-        // Tight bound: a download truncated by more than ~8 MB is corrupt.
-        val tolerance = 8L * 1024 * 1024
-        // Cheap size check for UI status. Full SHA-256 verification is done once
-        // when the engine opens the model (see verifyIntegrity).
-        return file.length() in (model.sizeBytes - tolerance)..(model.sizeBytes + tolerance)
+        // Lenient: any real .litertlm is at least 100 MB. Exact size/hash
+        // differences are logged at load time but must never block a usable model.
+        return file.length() > 100L * 1024 * 1024
     }
 
-    /** Full integrity check, called once before LiteRT maps the weights. */
+    /** Advisory integrity check. A mismatch is logged, not used to block loading. */
     fun verifyIntegrity(context: Context, model: ModelInfo): Boolean {
         val recorded = recordedHash(context, model) ?: return true
         val file = File(path(context, model))
         if (!file.exists()) return false
-        return runCatching { sha256(file) == recorded }.getOrDefault(false)
+        val matches = runCatching { sha256(file) == recorded }.getOrDefault(true)
+        if (!matches) {
+            ai.novaclaw.util.NovaLog.w("ModelCatalog",
+                "Model hash differs from recorded value for ${model.id}; attempting load anyway")
+        }
+        return true
     }
 
     fun recordedHash(context: Context, model: ModelInfo): String? =

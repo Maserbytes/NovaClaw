@@ -142,9 +142,10 @@ class AgentLoop(
                 }
                 val backendLabel = if (cloud) "Gemini Flash (cloud)" else
                     engine.open(ModelCatalog.path(context, model), preferGpu = false)
-                // One toolset everywhere: the model chats normally, and switches
-                // to any phone/web tool the moment the user instructs it to.
-                val chatTools = toolsFor(model)
+                // Small working set per message: too many tool schemas make the
+                // 2B model emit empty output. The next message re-routes if the
+                // user switches to an agentic instruction.
+                val chatTools = chatToolsFor(goal, model)
                 val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant with full tool access. " +
                     "Answer the user directly: explain, reason, write, calculate or chat naturally. " +
                     "You HAVE all tools: phone control (open_app, tap_node, t, scroll, system_key, send_message), " +
@@ -515,6 +516,24 @@ class AgentLoop(
 
     private fun toolsFor(model: ModelInfo): List<ToolSpec> =
         if (model.vision) tools.specs else tools.specs.filterNot { it.name == "see_screen" }
+
+    /** Pick only the tools this message plausibly needs, keeping schemas small. */
+    private fun chatToolsFor(goal: String, model: ModelInfo): List<ToolSpec> {
+        val g = goal.lowercase()
+        val names = mutableSetOf("finish")
+        when {
+            Regex("(?i)\\b(search|latest|news|web|google|look up|find out)\\b").containsMatchIn(g) ->
+                names.addAll(listOf("web_search", "fetch_url"))
+            Regex("(?i)\\b(send|message|whatsapp|text)\\.?\\b").containsMatchIn(g) ->
+                names.addAll(listOf("send_message", "open_app"))
+            Regex("(?i)\\b(open|launch|start)\\b").containsMatchIn(g) -> names.add("open_app")
+            Regex("(?i)\\b(skill|mcp)\\b").containsMatchIn(g) ->
+                names.addAll(listOf("skill_install", "skill_list", "skill_load", "mcp_add", "mcp_call", "web_search"))
+            Regex("(?i)\\b(battery|storage|ram|screen)\\b").containsMatchIn(g) ->
+                names.addAll(listOf("get_device_info", "see_screen"))
+        }
+        return toolsFor(model).filter { it.name in names }
+    }
 
     private fun thoughtFor(reply: ai.novaclaw.model.ModelReply, fallback: String): String {
         val show = context.getSharedPreferences("nova_settings", android.content.Context.MODE_PRIVATE)

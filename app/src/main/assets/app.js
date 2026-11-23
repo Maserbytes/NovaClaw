@@ -634,30 +634,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeModel = modelEngine.getSelectedModel();
     const modelBadge = activeModel.id === 'api-gemini' ? 'Gemini Flash' : (activeModel.id === 'local-ollama' ? 'Ollama' : 'Gemma 4 Local');
 
+    // Reasoning goes into the side panel; the chat stream stays clean.
+    const list = document.getElementById('thoughtList');
+    if (list) {
+      const item = document.createElement('div');
+      item.className = 'p-3 rounded-xl bg-[#1C1C1E] border-l-2 border-purple-600';
+      item.innerHTML = `<div class="text-[10px] text-purple-300 font-semibold mb-1">Step ${stepIndex} • ${escapeHtml(modelBadge)}</div>
+        <div class="whitespace-pre-wrap leading-relaxed">${escapeHtml(thoughtText)}</div>`;
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+      openThoughtPanel();
+    }
+
     const block = document.createElement('div');
     block.id = `turn-step-${stepIndex}`;
     block.className = 'space-y-1 text-xs';
-
-    block.innerHTML = `
-      <div>
-        <div class="thought-pill" onclick="this.nextElementSibling.classList.toggle('hidden')">
-          <span>💭 Step ${stepIndex} Reasoning • <span class="text-purple-400 font-semibold">${modelBadge}</span></span>
-          <span class="text-[9px]">▾</span>
-        </div>
-        <div class="thought-drawer">
-          <div class="text-[10px] text-purple-300 font-mono mb-1.5 flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-            <span>[Local AI Engine: ${escapeHtml(activeModel.name)}]</span>
-          </div>
-          ${escapeHtml(thoughtText)}
-        </div>
-      </div>
-      <div class="action-row pt-0.5"></div>
-      <div class="verify-row"></div>
-    `;
-
+    block.innerHTML = '<div class="action-row pt-0.5"></div><div class="verify-row"></div>';
     activeAssistantContainer.appendChild(block);
     scrollToBottom();
+  }
+
+  function openThoughtPanel() {
+    const p = document.getElementById('thoughtPanel');
+    if (p) { p.classList.remove('hidden'); p.classList.add('flex'); }
+  }
+  function closeThoughtPanel() {
+    const p = document.getElementById('thoughtPanel');
+    if (p) { p.classList.add('hidden'); p.classList.remove('flex'); }
   }
 
   function appendActionToStream(stepIndex, action) {
@@ -790,6 +793,15 @@ document.addEventListener('DOMContentLoaded', () => {
     div.textContent = text;
     return div.innerHTML;
   }
+
+  const thoughtToggle = document.getElementById('thoughtToggleBtn');
+  if (thoughtToggle) thoughtToggle.addEventListener('click', function () {
+    const p = document.getElementById('thoughtPanel');
+    if (!p) return;
+    if (p.classList.contains('hidden')) openThoughtPanel(); else closeThoughtPanel();
+  });
+  const closeThought = document.getElementById('closeThoughtBtn');
+  if (closeThought) closeThought.addEventListener('click', closeThoughtPanel);
 
   // 9. Agent Loop Controller
   const agent = new AgentLoop({
