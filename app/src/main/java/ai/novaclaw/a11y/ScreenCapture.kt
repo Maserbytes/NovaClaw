@@ -22,7 +22,7 @@ object ScreenCapture {
                 service.takeScreenshot(
                     android.view.Display.DEFAULT_DISPLAY,
                     executor,
-                    object : AccessibilityService.ScreenshotCallback {
+                    object : AccessibilityService.TakeScreenshotCallback {
                     override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                         try {
                             // Copy before closing the HardwareBuffer — the wrapped
