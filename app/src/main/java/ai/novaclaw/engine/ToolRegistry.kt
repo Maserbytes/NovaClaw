@@ -5,6 +5,8 @@ import ai.novaclaw.a11y.NovaAccessibilityService
 import ai.novaclaw.a11y.ScreenSnapshot
 import android.content.Context
 import ai.novaclaw.knowledge.KBManager
+import ai.novaclaw.skill.SkillManager
+import ai.novaclaw.mcp.McpClient
 import java.util.concurrent.TimeUnit
 
 /**
@@ -17,6 +19,8 @@ import java.util.concurrent.TimeUnit
  */
 class ToolRegistry(private val context: Context) {
     private val kb = KBManager(context)
+    private val skills = SkillManager(context)
+    private val mcp = McpClient(context)
 
     val specs: List<ToolSpec> = listOf(
         ToolSpec("open_app", "Launch an installed app by its name.", ToolSpec.obj(
@@ -33,10 +37,23 @@ class ToolRegistry(private val context: Context) {
             "Key", mapOf("key" to "back, home or enter"), listOf("key"))),
         ToolSpec("get_device_info", "Read battery, RAM, storage, network and device facts instantly.", ToolSpec.obj(
             "No arguments")),
+        ToolSpec("see_screen", "Capture the real screen pixels and answer a question about what is visible.", ToolSpec.obj(
+            "Question", mapOf("question" to "What to look for on screen"), listOf("question"))),
         ToolSpec("web_search", "Search the live web for current information. Returns titles, links and snippets.", ToolSpec.obj(
             "Query", mapOf("query" to "Search query"), listOf("query"))),
         ToolSpec("fetch_url", "Read a web page as plain text.", ToolSpec.obj(
             "URL", mapOf("url" to "http/https URL"), listOf("url"))),
+        ToolSpec("skill_install", "Download and install a markdown skill from a URL.", ToolSpec.obj(
+            "URL", mapOf("url" to "Skill .md URL"), listOf("url"))),
+        ToolSpec("skill_list", "List installed skills.", ToolSpec.obj("No arguments")),
+        ToolSpec("skill_load", "Load an installed skill's instructions.", ToolSpec.obj(
+            "Name", mapOf("name" to "Skill name"), listOf("name"))),
+        ToolSpec("mcp_add", "Add a remote HTTP MCP server by name and URL.", ToolSpec.obj(
+            "Server", mapOf("name" to "Name", "url" to "HTTP endpoint"), listOf("name", "url"))),
+        ToolSpec("mcp_list", "List configured MCP servers.", ToolSpec.obj("No arguments")),
+        ToolSpec("mcp_call", "Call a tool on a configured MCP server.", ToolSpec.obj(
+            "Call", mapOf("server" to "Server name", "tool" to "Tool name", "args" to "JSON arguments"),
+            listOf("server", "tool"))),
         ToolSpec("get_notifications", "Read current notifications.", ToolSpec.obj("No arguments")),
         ToolSpec("get_installed_apps", "List installed apps with their labels and packages.", ToolSpec.obj("No arguments")),
         ToolSpec("get_clipboard", "Read the clipboard.", ToolSpec.obj("No arguments")),
@@ -108,10 +125,34 @@ class ToolRegistry(private val context: Context) {
             }
 
             "get_device_info" -> ActionOutcome(true, DeviceInfoTool.read(context), "", "", 0L)
+            "see_screen" -> {
+                val question = args["question"]?.toString()?.ifBlank { "Describe this screen." }
+                    ?: "Describe this screen."
+                val answer = ScreenVision.ask?.invoke(question)
+                    ?: "Vision is not available for this model."
+                ActionOutcome(
+                    !answer.startsWith("Vision is not available", true) &&
+                        !answer.startsWith("Screenshot unavailable", true),
+                    answer, "", "", 0L)
+            }
             "web_search" -> ActionOutcome(true,
                 WebSearchTool.search(args["query"]?.toString().orEmpty()), "", "", 0L)
             "fetch_url" -> ActionOutcome(true,
                 WebSearchTool.fetch(args["url"]?.toString().orEmpty()), "", "", 0L)
+            "skill_install" -> ActionOutcome(true,
+                skills.installFromUrl(args["url"]?.toString().orEmpty()), "", "", 0L)
+            "skill_list" -> ActionOutcome(true, skills.list(), "", "", 0L)
+            "skill_load" -> ActionOutcome(true,
+                skills.load(args["name"]?.toString().orEmpty()), "", "", 0L)
+            "mcp_add" -> ActionOutcome(true,
+                mcp.add(args["name"]?.toString().orEmpty(), args["url"]?.toString().orEmpty()), "", "", 0L)
+            "mcp_list" -> ActionOutcome(true, mcp.list(), "", "", 0L)
+            "mcp_call" -> ActionOutcome(true,
+                mcp.call(
+                    args["server"]?.toString().orEmpty(),
+                    args["tool"]?.toString().orEmpty(),
+                    args["args"]?.toString().takeIf { !it.isNullOrBlank() } ?: "{}",
+                ), "", "", 0L)
             "get_notifications" -> ActionOutcome(true, DeviceTools.notifications(), "", "", 0L)
             "get_installed_apps" -> ActionOutcome(true, DeviceTools.installedApps(context), "", "", 0L)
             "get_clipboard" -> ActionOutcome(true, DeviceTools.clipboardGet(context), "", "", 0L)

@@ -179,6 +179,24 @@ class CloudEngine(private val context: Context) {
             }
         }
 
+        override suspend fun sendImage(
+            imagePath: String,
+            prompt: String,
+            timeoutMs: Long,
+        ): ModelReply = withContext(Dispatchers.IO) {
+            val base64 = java.util.Base64.getEncoder().encodeToString(java.io.File(imagePath).readBytes())
+            val imagePart = JsonObject().apply {
+                add("inline_data", JsonObject().apply {
+                    addProperty("mime_type", "image/png")
+                    addProperty("data", base64)
+                })
+            }
+            val textPart = JsonObject().apply { addProperty("text", prompt) }
+            val parts = JsonArray().apply { add(imagePart); add(textPart) }
+            contents.add(JsonObject().apply { addProperty("role", "user"); add("parts", parts) })
+            call()
+        }
+
         override fun close() { /* stateless; contents kept for the session lifetime */ }
     }
 }

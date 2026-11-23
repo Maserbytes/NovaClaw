@@ -13,6 +13,7 @@ data class ModelInfo(
     val sizeBytes: Long,
     val minRamGb: Int,
     val kind: Kind = Kind.LITE_RT,
+    val vision: Boolean = false,
 ) {
     enum class Kind { LITE_RT, CLOUD }
 }
@@ -28,6 +29,7 @@ object ModelCatalog {
         url = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
         sizeBytes = 2_588_147_712L,
         minRamGb = 8,
+        vision = true,
     )
 
     val GEMMA_E4B = ModelInfo(
@@ -37,6 +39,7 @@ object ModelCatalog {
         url = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
         sizeBytes = 3_659_530_240L,
         minRamGb = 10,
+        vision = true,
     )
 
     val QWEN_35_4B = ModelInfo(
@@ -56,6 +59,7 @@ object ModelCatalog {
         sizeBytes = 0L,
         minRamGb = 0,
         kind = ModelInfo.Kind.CLOUD,
+        vision = true,
     )
 
     val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B, QWEN_35_4B)

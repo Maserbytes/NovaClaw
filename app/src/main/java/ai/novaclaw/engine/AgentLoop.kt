@@ -102,6 +102,15 @@ class AgentLoop(
             return
         }
         session = null
+        ScreenVision.ask = { question ->
+            try {
+                val path = ai.novaclaw.a11y.ScreenCapture.capture(context)
+                if (path == null) "Screenshot unavailable on this device."
+                else (session?.sendImage(path, question)?.text ?: "No visual description returned.").take(1200)
+            } catch (t: Throwable) {
+                "Screenshot failed: ${t.message?.take(120)}"
+            }
+        }
         try {
             history.append("user", goal)
 
@@ -135,7 +144,7 @@ class AgentLoop(
                     engine.open(ModelCatalog.path(context, model), preferGpu = false)
                 // One toolset everywhere: the model chats normally, and switches
                 // to any phone/web tool the moment the user instructs it to.
-                val chatTools = tools.specs
+                val chatTools = toolsFor(model)
                 val chatSystem = "You are NovaClaw, a capable general-purpose AI assistant with full tool access. " +
                     "Answer the user directly: explain, reason, write, calculate or chat naturally. " +
                     "You HAVE all tools: phone control (open_app, tap_node, t, scroll, system_key, send_message), " +
@@ -219,7 +228,7 @@ class AgentLoop(
 
             val playbook = PlaybookManager.match(goal)
             val systemPrompt = PromptComposer.compose(context, playbook)
-            val selectedTools = ToolSelector.select(goal, tools.specs)
+            val selectedTools = ToolSelector.select(goal, toolsFor(model))
             NovaLog.i(tag, "prompt composed playbook=${playbook?.id ?: "none"} tools=${selectedTools.map { it.name }}")
 
             session = if (isCloud) {
@@ -503,6 +512,9 @@ class AgentLoop(
             session!!.send(prompt)
         }
     }
+
+    private fun toolsFor(model: ModelInfo): List<ToolSpec> =
+        if (model.vision) tools.specs else tools.specs.filterNot { it.name == "see_screen" }
 
     private fun thoughtFor(reply: ai.novaclaw.model.ModelReply, fallback: String): String {
         val show = context.getSharedPreferences("nova_settings", android.content.Context.MODE_PRIVATE)

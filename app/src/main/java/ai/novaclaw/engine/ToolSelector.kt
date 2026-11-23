@@ -20,6 +20,9 @@ object ToolSelector {
                 pick("get_clipboard", "set_clipboard", "finish")
             g.contains("installed") || g.contains("what apps") ->
                 pick("get_installed_apps", "finish")
+            g.contains("skill") || g.contains("mcp") ->
+                pick("web_search", "skill_install", "skill_list", "skill_load",
+                    "mcp_add", "mcp_list", "mcp_call", "finish")
             g.contains("remember") || g.contains("note ") || g.contains("todo") || g.contains("my notes") ->
                 pick("kb_write", "kb_read", "kb_search", "kb_todo", "kb_list", "finish")
             g.contains("send ") || g.contains("message ") || g.contains("reply ") || g.contains("tell ") ->

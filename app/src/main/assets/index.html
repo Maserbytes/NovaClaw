@@ -494,8 +494,46 @@
             '<button id="stopMonitorBtn" class="flex-1 py-1.5 rounded-xl bg-[#333333] text-white text-[10px] font-bold">Stop</button>' +
           '</div>' +
           '<div id="monitorListText" class="text-[9px] text-slate-500 font-mono break-all"></div>' +
+        '</div>' +
+        '<div class="pt-2 border-t border-[#333333] space-y-1.5">' +
+          '<div class="text-white text-xs font-semibold">Skills &amp; MCP</div>' +
+          '<div class="text-[9px] text-slate-500">Install a skill (.md URL) or add a remote HTTP MCP server.</div>' +
+          '<input id="skillUrlInput" placeholder="Skill .md URL" class="w-full bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-2 py-1.5 text-[11px] text-white"/>' +
+          '<button id="installSkillBtn" class="w-full py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">Install skill</button>' +
+          '<div class="flex gap-2">' +
+            '<input id="mcpNameInput" placeholder="MCP name" class="w-24 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-2 py-1.5 text-[11px] text-white"/>' +
+            '<input id="mcpUrlInput" placeholder="http://…/mcp" class="flex-1 min-w-0 bg-[#1C1C1E] border border-[#3A3A3C] rounded-xl px-2 py-1.5 text-[11px] text-white"/>' +
+            '<button id="addMcpBtn" class="px-2 py-1.5 rounded-xl bg-purple-600 text-white text-[10px] font-bold">Add</button>' +
+          '</div>' +
+          '<div id="skillsMcpList" class="text-[9px] text-slate-400 font-mono break-all"></div>' +
         '</div>';
       done.parentNode.insertBefore(box, done);
+
+      function refreshSkillsMcp() {
+        var el = document.getElementById('skillsMcpList');
+        if (!el || !window.AndroidBridge) return;
+        var s = window.AndroidBridge.listSkills ? window.AndroidBridge.listSkills() : '';
+        var m = window.AndroidBridge.listMcpServers ? window.AndroidBridge.listMcpServers() : '';
+        el.textContent = 'Skills: ' + s + '\nMCP: ' + m;
+      }
+      var isb = document.getElementById('installSkillBtn');
+      if (isb) isb.addEventListener('click', function () {
+        var url = document.getElementById('skillUrlInput').value.trim();
+        if (!url || !window.AndroidBridge.installSkill) return;
+        var msg = window.AndroidBridge.installSkill(url);
+        if (window.AndroidBridge.showToast) window.AndroidBridge.showToast(msg);
+        refreshSkillsMcp();
+      });
+      var amb = document.getElementById('addMcpBtn');
+      if (amb) amb.addEventListener('click', function () {
+        var n = document.getElementById('mcpNameInput').value.trim();
+        var u = document.getElementById('mcpUrlInput').value.trim();
+        if (!n || !u || !window.AndroidBridge.addMcpServer) return;
+        var msg = window.AndroidBridge.addMcpServer(n, u);
+        if (window.AndroidBridge.showToast) window.AndroidBridge.showToast(msg);
+        refreshSkillsMcp();
+      });
+      refreshSkillsMcp();
 
       function refresh() {
         var el = document.getElementById('backendStateText');

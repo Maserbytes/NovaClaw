@@ -228,6 +228,20 @@ class NovaWebBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun installSkill(url: String): String =
+        kotlinx.coroutines.runBlocking { ai.novaclaw.skill.SkillManager(context).installFromUrl(url) }
+
+    @JavascriptInterface
+    fun listSkills(): String = ai.novaclaw.skill.SkillManager(context).list()
+
+    @JavascriptInterface
+    fun addMcpServer(name: String, url: String): String =
+        ai.novaclaw.mcp.McpClient(context).add(name, url)
+
+    @JavascriptInterface
+    fun listMcpServers(): String = ai.novaclaw.mcp.McpClient(context).list()
+
+    @JavascriptInterface
     fun getShowThinking(): Boolean =
         context.getSharedPreferences("nova_settings", Context.MODE_PRIVATE)
             .getBoolean("show_thinking", false)

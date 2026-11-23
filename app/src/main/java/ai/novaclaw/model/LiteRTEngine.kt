@@ -79,6 +79,7 @@ class LiteRTEngine(private val context: Context) {
                     backend = backend,
                     maxNumTokens = decision.maxTokens,
                     cacheDir = cacheDir,
+                    visionBackend = Backend.CPU(),
                 )
                 val e = Engine(cfg).also { it.initialize() }
                 if (useGpu) BackendSelector.markGpuSuccess(context, desiredPath)
@@ -147,6 +148,17 @@ class LiteRTEngine(private val context: Context) {
         ): ModelReply = invoke(timeoutMs) {
             val contents = Contents.of(responses.map { Content.ToolResponse(it.first, it.second) })
             conversation.sendMessage(Message.tool(contents))
+        }
+
+        override suspend fun sendImage(
+            imagePath: String,
+            prompt: String,
+            timeoutMs: Long,
+        ): ModelReply = invoke(timeoutMs) {
+            conversation.sendMessage(Contents.of(
+                Content.ImageFile(imagePath),
+                Content.Text(prompt),
+            ))
         }
 
         override fun markDirty() { dirty = true }
