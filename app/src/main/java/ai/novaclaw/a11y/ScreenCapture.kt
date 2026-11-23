@@ -19,7 +19,10 @@ object ScreenCapture {
         return suspendCancellableCoroutine { cont ->
             val executor = Executors.newSingleThreadExecutor()
             if (cont.isActive) {
-                service.takeScreenshot(executor, object : AccessibilityService.ScreenshotCallback {
+                service.takeScreenshot(
+                    android.view.Display.DEFAULT_DISPLAY,
+                    executor,
+                    object : AccessibilityService.ScreenshotCallback {
                     override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                         try {
                             // Copy before closing the HardwareBuffer — the wrapped
