@@ -482,6 +482,12 @@
           '<button id="verifyGpuBtn" class="flex-1 py-1.5 rounded-xl bg-purple-600 text-white text-[11px] font-semibold">Verify GPU</button>' +
         '</div>' +
         '<div class="text-[9px] text-slate-500">CPU is the default: Gemma 4 field tests show GPU backends can corrupt tool-call arguments on some chipsets.</div>' +
+        '<div class="pt-2 border-t border-[#333333] space-y-1.5">' +
+          '<div class="text-white text-xs font-semibold">Self test</div>' +
+          '<div class="text-[9px] text-slate-500">Verify all setup in one tap</div>' +
+          '<button id="selfTestBtn" class="w-full py-1.5 rounded-xl bg-blue-600 text-white text-[10px] font-bold">Run 12 checks</button>' +
+          '<div id="selfTestResults" class="text-[9px] text-slate-300 font-mono break-all"></div>' +
+        '</div>' +
         '<div class="pt-2 border-t border-[#333333] flex items-center justify-between">' +
           '<div><div class="text-white text-xs font-semibold">Show model reasoning</div>' +
           '<div class="text-[9px] text-slate-500">Reveal thought process in chat</div></div>' +
@@ -575,6 +581,20 @@
           var bt = document.getElementById('downloadQwenBtnText');
           if (bt) bt.textContent = 'Starting Download...';
         }
+      });
+
+      var stBtn = document.getElementById('selfTestBtn');
+      if (stBtn) stBtn.addEventListener('click', function () {
+        if (!window.AndroidBridge || !window.AndroidBridge.runSelfTest) return;
+        var out = document.getElementById('selfTestResults');
+        if (out) out.textContent = 'Running...';
+        try {
+          var r = JSON.parse(window.AndroidBridge.runSelfTest());
+          if (out) out.textContent = r.passed + '/' + r.total + ' passed' +
+            (r.allOk ? ' ✓' : '') + '\n' + r.checks.map(function (c) {
+              return (c.ok ? '✓ ' : '✕ ') + c.name;
+            }).join('\n');
+        } catch (e) { if (out) out.textContent = 'Self test failed: ' + e.message; }
       });
 
       var thinkBtn = document.getElementById('showThinkingBtn');

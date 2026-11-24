@@ -228,6 +228,49 @@ class NovaWebBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun runSelfTest(): String {
+        val results = mutableListOf<Pair<String, Boolean>>()
+        fun check(name: String, ok: Boolean) = results.add(name to ok)
+
+        check("Accessibility service", ai.novaclaw.a11y.NovaAccessibilityService.isEnabled(context) &&
+            ai.novaclaw.a11y.NovaAccessibilityService.instance != null)
+        check("Notification access", ai.novaclaw.service.NovaNotificationListener.isEnabled())
+        check("Overlay / kill switch", isOverlayEnabled())
+        check("Network connected", runCatching {
+            val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+            cm.activeNetworkInfo?.isConnected == true
+        }.getOrDefault(false))
+        val models = ai.novaclaw.model.ModelCatalog.LOCAL.filter {
+            ai.novaclaw.model.ModelCatalog.isInstalled(context, it)
+        }
+        check("Gemma 4 E2B installed", models.any { it.id == "gemma4-e2b" })
+        check("Gemma 4 E4B installed", models.any { it.id == "gemma4-e4b" })
+        check("Qwen 3.5 4B installed", models.any { it.id == "qwen3.5-4b" })
+        check("Cloud key configured", ai.novaclaw.model.CloudConfig.apiKey(context).isNotBlank())
+        check("Tool registry (${ai.novaclaw.engine.ToolRegistry(context).specs.size} tools)",
+            ai.novaclaw.engine.ToolRegistry(context).specs.isNotEmpty())
+        check("Skills installed", ai.novaclaw.skill.SkillManager(context).list() != "No skills installed.")
+        check("MCP servers", ai.novaclaw.mcp.McpClient(context).list() != "No MCP servers configured.")
+        check("Model storage writable", runCatching {
+            ai.novaclaw.model.ModelCatalog.modelsDir(context).canWrite()
+        }.getOrDefault(false))
+
+        val passed = results.count { it.second }
+        return org.json.JSONObject().apply {
+            put("passed", passed)
+            put("total", results.size)
+            put("allOk", passed == results.size)
+            val arr = org.json.JSONArray()
+            results.forEach { (name, ok) ->
+                arr.put(org.json.JSONObject().apply {
+                    put("name", name); put("ok", ok)
+                })
+            }
+            put("checks", arr)
+        }.toString()
+    }
+
+    @JavascriptInterface
     fun installSkill(url: String): String =
         kotlinx.coroutines.runBlocking { ai.novaclaw.skill.SkillManager(context).installFromUrl(url) }
 
