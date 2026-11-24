@@ -179,7 +179,7 @@ class ToolingTest {
     }
     @Test fun stuck_changedScreenNoSignal() {
         val d = StuckDetector()
-        repeat(6) { assertNull(d.record("tap", "fp$it")) }
+        repeat(6) { assertNull(d.record("step$it", "fp$it")) }
     }
     @Test fun stuck_repeatedActionFires() {
         val d = StuckDetector()
@@ -188,7 +188,7 @@ class ToolingTest {
     }
     @Test fun stuck_blankFingerprintIgnored() {
         val d = StuckDetector()
-        repeat(6) { assertNull(d.record("tap", "")) }
+        repeat(6) { assertNull(d.record("step$it", "")) }
     }
     @Test fun stuck_variedActionsNoSignal() {
         val d = StuckDetector()
