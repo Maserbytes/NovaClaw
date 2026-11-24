@@ -171,19 +171,44 @@ class AgentLoop(
                     append("User: ").append(goal)
                 }
                 var reply = sendWithCloudFallback(chatPrompt, chatSystem, chatTools, cloud)
-                if (looksLikeMeta(reply.text)) {
-                    NovaLog.w(tag, "Model emitted meta-reasoning; retrying with strict answer prompt")
-                    reply = sendWithCloudFallback(
-                        "Give ONLY the final answer to: $goal\n" +
-                            "Do not narrate the question, your reasoning, or tool calls.",
-                        chatSystem, chatTools, cloud
-                    )
+                var answer: String? = null
+
+                // Chat must execute tool calls too — the model often calls
+                // web_search instead of answering directly. Loop until we have
+                // a real answer instead of falling back to a canned greeting.
+                repeat(8) { turn ->
+                    if (looksLikeMeta(reply.text)) {
+                        NovaLog.w(tag, "Model emitted meta-reasoning; retrying with strict answer prompt")
+                        reply = sendWithCloudFallback(
+                            "Give ONLY the final answer to: $goal\n" +
+                                "Do not narrate the question, your reasoning, or tool calls.",
+                            chatSystem, chatTools, cloud
+                        )
+                    }
+                    val call = reply.toolCalls.firstOrNull()
+                    if (call == null) {
+                        if (!reply.text.isNullOrBlank()) answer = reply.text.trim()
+                        return@repeat
+                    }
+                    if (call.name == "finish") {
+                        answer = call.arguments["summary"]?.toString()?.trim()
+                        return@repeat
+                    }
+                    emit(AgentEvent.Thought(turn + 1, "Using ${call.name}…", backendLabel))
+                    val result = tools.execute(call.name, call.arguments, null)
+                    try {
+                        reply = session!!.sendToolResponses(listOf(call.name to resultJson(call.name, result)))
+                    } catch (t: Throwable) {
+                        answer = result.message
+                        return@repeat
+                    }
                 }
-                val fromTool = reply.toolCalls.firstOrNull()?.arguments?.get("summary")?.toString()
-                val answer = (reply.text ?: fromTool ?: "Hello! How can I help?").trim()
-                emit(AgentEvent.Thought(1, thoughtFor(reply, "Reasoning and answering — no phone action needed"), backendLabel))
-                history.append("nova", answer)
-                emit(AgentEvent.Complete(answer, true, 1))
+
+                val finalAnswer = answer?.takeIf { it.isNotBlank() }
+                    ?: "I couldn't produce an answer to \"${goal.take(80)}\". Please try again."
+                emit(AgentEvent.Thought(1, thoughtFor(reply, "Answering — no phone action needed"), backendLabel))
+                history.append("nova", finalAnswer)
+                emit(AgentEvent.Complete(finalAnswer, true, 1))
                 return
             }
 
