@@ -570,7 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function appendVerificationToStream(stepIndex, verification) {
-    const outcome = activeAssistantContainer?.querySelector('[data-step="' + stepIndex + '"] .trace-result');
+    const outcomes = activeAssistantContainer?.querySelectorAll('[data-step="' + stepIndex + '"] .trace-result');
+    const outcome = outcomes?.[outcomes.length - 1];
     if (!outcome) return;
     outcome.dataset.outcome = verification.success ? 'success' : 'failed';
     outcome.textContent = (verification.success ? 'Verified · ' : 'Could not verify · ') + verification.message;

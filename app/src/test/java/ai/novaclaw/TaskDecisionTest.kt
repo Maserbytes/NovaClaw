@@ -56,4 +56,10 @@ class TaskDecisionTest {
         assertFalse(ConversationRouter.isChatOnly("Press back"))
         assertFalse(ConversationRouter.isChatOnly("What is on my screen?"))
     }
+    @Test fun openedHeadingOnlyCompletesASingleNavigationRequest() {
+        assertTrue(TaskDecision.navigationTarget("Show me the calculation history", "History"))
+        assertTrue(TaskDecision.navigationTarget("View alarms", "Alarms"))
+        assertFalse(TaskDecision.navigationTarget("Open History and clear it", "History"))
+        assertFalse(TaskDecision.navigationTarget("Show different history", "Settings"))
+    }
 }

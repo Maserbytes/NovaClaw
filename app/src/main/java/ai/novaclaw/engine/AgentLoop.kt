@@ -325,6 +325,7 @@ class AgentLoop(
             var actionCount = 0
             var consecutiveFailures = 0
             var lastActionSucceeded = false
+            var openedSection: String? = null
             val canAnswerFromScreen = Regex("(?i)\\b(on (my|the|this) screen|what can you see)\\b").containsMatchIn(goal)
 
             for (step in 1..30) {
@@ -344,6 +345,14 @@ class AgentLoop(
                     emit(AgentEvent.Error("${opening.app} is no longer in the foreground. Reopen it and retry."))
                     return
                 }
+                val section = openedSection
+                if (section != null && snapshot.nodes.any { !it.clickable && it.label.trim().equals(section, true) }) {
+                    val summary = "Opened $section"
+                    history.append("nova", summary)
+                    emit(AgentEvent.Complete(summary, false, actionCount))
+                    return
+                }
+                openedSection = null
                 emit(AgentEvent.Step(step, snapshot.generation, snapshot.appName))
 
                 val prompt = buildString {
@@ -445,6 +454,13 @@ class AgentLoop(
                 val result = tools.execute(call.name, call.arguments, snapshot)
                 actionCount++
                 lastActionSucceeded = result.success && !launching
+                if (result.success && call.name == "tap_node") {
+                    val label = snapshot.node(call.arguments["node_id"].toString())?.label?.trim()
+                    if (label != null && TaskDecision.navigationTarget(deviceGoal, label) &&
+                        snapshot.nodes.none { !it.clickable && it.label.trim().equals(label, true) }) {
+                        openedSection = label
+                    }
+                }
                 observations.add(TaskDecision.observation(call.name, target, result))
                 if (launching && !result.success) {
                     emit(AgentEvent.Verification(step, false, result.message, "", ""))

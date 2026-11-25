@@ -47,6 +47,15 @@ internal object TaskDecision {
             !Regex("(?i)\\b(how (can|may) i (help|assist)|what can i do for you)\\b").containsMatchIn(summary)
     }
 
+    fun navigationTarget(goal: String, label: String): Boolean {
+        val target = label.trim().lowercase()
+        if (target.isEmpty()) return false
+        val request = Regex("""(?i)^(?:show(?: me)?|view|open|display)\s+(?:the\s+)?([\p{L}\d ]{1,55})[.!]?$""")
+            .matchEntire(goal.trim())?.groupValues?.get(1)?.trim()?.lowercase() ?: return false
+        if (Regex("""\b(?:and|then|or|before|after|with)\b""").containsMatchIn(request)) return false
+        return request == target || request.endsWith(" $target")
+    }
+
     fun observation(tool: String, target: String, result: ToolResult): String = gson.toJson(
         mapOf("tool" to tool, "target" to target.take(80), "ok" to result.success,
             "message" to result.message.take(600)),
