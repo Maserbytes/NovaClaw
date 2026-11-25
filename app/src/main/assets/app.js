@@ -139,6 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function checkInstalledModelsStatus() {
+    const legacyQwen = document.getElementById('deleteLegacyQwenBtn');
+    legacyQwen?.classList.toggle('hidden', !window.AndroidBridge?.hasLegacyQwenDownload?.());
     const isReady = modelEngine.isModelReady();
     const activeModel = modelEngine.getSelectedModel();
 
@@ -147,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const downloads = [
           ['gemma-4-2b-it', 'gemma', downloadGemmaBtnText, gemmaDeleteBtn],
           ['gemma-4-4b-it', 'e4b', downloadE4bBtnText, e4bDeleteBtn],
-          ['qwen-3.5-4b', 'qwen', document.getElementById('downloadQwenBtnText'), null]
+          ['qwen-3.5-2b', 'qwen', document.getElementById('downloadQwenBtnText'), null]
         ];
         for (const [id, prefix, buttonLabel, deleteButton] of downloads) {
           const model = AVAILABLE_MODELS.find(item => item.id === id);
@@ -424,12 +426,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (st) st.textContent = data.status;
       if (data.status === 'SUCCESSFUL') {
         if (badge) badge.textContent = 'Installed';
-        modelEngine.setModel('qwen-3.5-4b');
+        modelEngine.setModel('qwen-3.5-2b');
         if (btnText) btnText.textContent = 'Selected';
         refreshStatus();
       } else if (data.status && data.status.indexOf('FAILED') === 0) {
         if (badge) badge.textContent = 'Failed';
-        if (btnText) btnText.textContent = 'Retry Download Qwen 3.5 4B';
+        if (btnText) btnText.textContent = 'Retry Download Qwen 3.5 2B';
       }
     } else if (data.fileName && (data.fileName.includes('E2B') || data.fileName.includes('gemma'))) {
       if (gemmaDownloadProgressBox) gemmaDownloadProgressBox.classList.remove('hidden');
@@ -467,10 +469,14 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModelModal();
   });
 
+  document.getElementById('deleteLegacyQwenBtn')?.addEventListener('click', () => {
+    if (window.AndroidBridge.deleteModel('Qwen3.5-4B_mixed_int4.litertlm')) refreshStatus();
+    else window.AndroidBridge.showToast('Could not remove the old Qwen download.');
+  });
   const downloadQwenBtn = document.getElementById('downloadQwenBtn');
   downloadQwenBtn?.addEventListener('click', () => {
     if (!isAndroidNative) return;
-    const model = AVAILABLE_MODELS.find(item => item.id === 'qwen-3.5-4b');
+    const model = AVAILABLE_MODELS.find(item => item.id === 'qwen-3.5-2b');
     if (modelEngine.isModelReady(model)) {
       modelEngine.setModel(model.id);
       closeModelModal();

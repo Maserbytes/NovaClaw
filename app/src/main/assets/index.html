@@ -308,14 +308,14 @@
           </div>
         </div>
 
-        <!-- Qwen 3.5 4B -->
+        <!-- Qwen 3.5 2B -->
         <div class="p-3.5 rounded-2xl bg-[#262626] border border-[#333333] space-y-2.5">
           <div class="flex items-start justify-between">
             <div>
               <div class="font-bold text-white flex items-center gap-1.5">
-                <span>Qwen 3.5 4B</span>
+                <span>Qwen 3.5 2B</span>
                 </div>
-              <div class="text-[11px] text-slate-400">LiteRT-LM • 2.75 GB • CPU • 8 GB RAM or more</div>
+              <div class="text-[11px] text-slate-400">LiteRT-LM • 2.12 GB • CPU • 8 GB RAM or more</div>
             </div>
             <span id="qwenStatusBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Not Installed</span>
           </div>
@@ -324,13 +324,14 @@
               <div id="qwenProgressBar" class="bg-emerald-600 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
             </div>
             <div class="flex justify-between text-[11px] text-slate-400 font-mono">
-              <span id="qwenProgressText">0 MB / 2.75 GB (0%)</span>
+              <span id="qwenProgressText">0 MB / 2.12 GB (0%)</span>
               <span id="qwenProgressStatus" class="text-emerald-400">Downloading...</span>
             </div>
           </div>
           <button id="downloadQwenBtn" class="w-full py-2 bg-[#333333] hover:bg-[#3D3D3D] text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all">
-            <span id="downloadQwenBtnText">Download Qwen 3.5 4B (2.75 GB)</span>
+            <span id="downloadQwenBtnText">Download Qwen 3.5 2B (2.12 GB)</span>
           </button>
+          <button id="deleteLegacyQwenBtn" class="hidden text-[11px] text-slate-400 underline" type="button">Remove old Qwen 4B download</button>
         </div>
 
       </div>

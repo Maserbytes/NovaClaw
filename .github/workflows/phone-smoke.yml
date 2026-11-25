@@ -44,6 +44,8 @@ jobs:
           mkdir -p smoke-inputs smoke-results
           curl --fail --location --retry 3 --output smoke-inputs/gemma-4-E2B-it.litertlm https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm
           test "$(stat -c %s smoke-inputs/gemma-4-E2B-it.litertlm)" = 2588147712
+          curl --fail --location --retry 3 --output smoke-inputs/Qwen3.5-2B_int8.litertlm https://huggingface.co/litert-community/Qwen3.5-2B/resolve/main/Qwen3.5-2B_int8.litertlm
+          test "$(stat -c %s smoke-inputs/Qwen3.5-2B_int8.litertlm)" = 2119843840
           curl --fail --location --retry 3 --output smoke-inputs/calculator.apk https://github.com/FossifyOrg/Calculator/releases/download/1.4.0/calculator-10-foss-release.apk
       - name: Verify on-device task on Android
         uses: reactivecircus/android-emulator-runner@v2

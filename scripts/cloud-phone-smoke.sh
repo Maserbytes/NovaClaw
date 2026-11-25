@@ -70,3 +70,33 @@ PY
 run_task 'Open Calculator and calculate 24 times 17' 408 calculator 90
 run_task 'Open Calculator and clear it, then tap the digit 7' 7 gemma-tap 300
 grep -F 'engine ready backend=CPU' smoke-results/gemma-tap-agent.log
+
+# Verify the CPU Qwen model boots independently of Gemma.
+adb shell am force-stop "$package"
+adb shell run-as "$package" rm "files/models/$model"
+qwen=Qwen3.5-2B_int8.litertlm
+adb exec-in "run-as $package sh -c 'cat > files/models/$qwen'" < "smoke-inputs/$qwen"
+adb shell am start -W -n "$activity"
+adb shell settings put secure enabled_accessibility_services "$service"
+sleep 2
+adb logcat -c
+goal=$(printf %s 'What is 2 plus 2? Answer with only the number.' | base64 -w0)
+adb shell am broadcast -a ai.novaclaw.RUN_TASK -n "$package/.automation.ExternalAutomationReceiver" \
+  --es task_b64 "$goal" --es request_id qwen-chat
+for attempt in $(seq 1 80); do
+  adb logcat -d -s NovaClaw/Smoke NovaClaw/AgentLoop > smoke-results/qwen.log
+  if grep -Fq 'Task halted' smoke-results/qwen.log; then
+    echo 'FAIL: Qwen task stopped with an error' >&2
+    exit 1
+  fi
+  if grep -Fq 'Task completed' smoke-results/qwen.log; then
+    grep -F 'Task started with qwen3.5-2b' smoke-results/qwen.log
+    adb shell "run-as $package sh -c 'cat files/conversations/*.md'" > smoke-results/qwen-response.txt
+    grep -Eq '^nova: .*\b4\b' smoke-results/qwen-response.txt
+    echo 'PASS: Qwen 3.5 2B answered using the CPU runtime'
+    exit 0
+  fi
+  sleep 3
+done
+echo 'FAIL: Qwen task timed out' >&2
+exit 1

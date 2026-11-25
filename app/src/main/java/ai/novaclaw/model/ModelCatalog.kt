@@ -51,6 +51,20 @@ object ModelCatalog {
         minRamGb = 8,
     )
 
+    val QWEN_35_2B = ModelInfo(
+        id = "qwen3.5-2b",
+        name = "Qwen 3.5 2B (on-device)",
+        fileName = "Qwen3.5-2B_int8.litertlm",
+        url = "https://huggingface.co/litert-community/Qwen3.5-2B/resolve/main/Qwen3.5-2B_int8.litertlm",
+        sizeBytes = 2_119_843_840L,
+        minRamGb = 8,
+    )
+
+    fun hasLegacyQwenDownload(context: Context): Boolean =
+        listOf(modelsDir(context), File(context.filesDir, "models")).any { dir ->
+            File(dir, QWEN_35_4B.fileName).isFile || File(dir, "${QWEN_35_4B.fileName}.downloading").isFile
+        }
+
     val GEMINI = ModelInfo(
         id = "gemini-flash",
         name = "Gemini Flash (cloud)",
@@ -62,7 +76,7 @@ object ModelCatalog {
         vision = true,
     )
 
-    val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B, QWEN_35_4B)
+    val LOCAL = listOf(GEMMA_E2B, GEMMA_E4B, QWEN_35_2B)
 
     fun byId(id: String): ModelInfo? = LOCAL.firstOrNull {
         it.id.equals(id, ignoreCase = true) ||
@@ -72,7 +86,9 @@ object ModelCatalog {
 
     fun recommended(context: Context): ModelInfo {
         val ram = BackendSelector.ram(context)
-        return if (ram.totalGb >= 12 && ram.availableGb >= 6) GEMMA_E4B else GEMMA_E2B
+        val preferred = if (ram.totalGb >= 12 && ram.availableGb >= 6) GEMMA_E4B else GEMMA_E2B
+        return if (isInstalled(context, preferred)) preferred
+        else LOCAL.firstOrNull { isInstalled(context, it) } ?: preferred
     }
 
     /** External storage first, writable-probe enforced, internal fallback. */

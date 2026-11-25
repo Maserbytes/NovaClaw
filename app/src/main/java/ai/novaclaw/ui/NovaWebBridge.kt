@@ -116,9 +116,12 @@ class NovaWebBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun deleteModel(fileName: String): Boolean {
-        val model = ModelCatalog.LOCAL.firstOrNull { it.fileName == fileName } ?: return false
+        val model = (ModelCatalog.LOCAL + ModelCatalog.QWEN_35_4B).firstOrNull { it.fileName == fileName } ?: return false
         return ModelCatalog.delete(context, model)
     }
+
+    @JavascriptInterface
+    fun hasLegacyQwenDownload(): Boolean = runCatching { ModelCatalog.hasLegacyQwenDownload(context) }.getOrDefault(false)
 
     @JavascriptInterface
     fun cancelDownload(downloadId: Long) {
@@ -243,7 +246,7 @@ class NovaWebBridge(private val activity: MainActivity) {
         }
         check("Gemma 4 E2B installed", models.any { it.id == "gemma4-e2b" })
         check("Gemma 4 E4B installed", models.any { it.id == "gemma4-e4b" })
-        check("Qwen 3.5 4B installed", models.any { it.id == "qwen3.5-4b" })
+        check("Qwen 3.5 2B catalog entry", models.any { it.id == "qwen3.5-2b" })
         check("Cloud key configured", ai.novaclaw.model.CloudConfig.apiKey(context).isNotBlank())
         check("Tool registry (${ai.novaclaw.engine.ToolRegistry(context).specs.size} tools)",
             ai.novaclaw.engine.ToolRegistry(context).specs.isNotEmpty())
