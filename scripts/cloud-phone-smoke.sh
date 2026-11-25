@@ -14,8 +14,10 @@ capture() {
 trap capture EXIT
 
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-if ! adb shell pm list packages | grep -Eiq '^package:.*calculator'; then
+calculator=$(adb shell pm list packages | tr -d '\r' | sed -n 's/^package:\(.*calculator.*\)$/\1/p' | head -n 1)
+if test -z "$calculator"; then
   adb install -r smoke-inputs/calculator.apk
+  calculator=org.fossify.math
 fi
 adb shell run-as "$package" mkdir -p shared_prefs
 printf '%s\n' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="external_automation_enabled" value="true"/></map>' |
@@ -47,12 +49,12 @@ run_task() {
         timeout 15 adb shell uiautomator dump /sdcard/novaclaw-smoke.xml >/dev/null 2>&1; then
       adb exec-out cat /sdcard/novaclaw-smoke.xml > "smoke-results/$label.xml"
       adb logcat -d -s NovaClaw/AgentLoop > "smoke-results/$label-agent.log"
-      python3 - "$expected" "smoke-results/$label.xml" <<'PY'
+      python3 - "$expected" "$calculator" "smoke-results/$label.xml" <<'PY' || return 1
 import sys
 import xml.etree.ElementTree as ET
-expected, xml = sys.argv[1:]
+expected, package, xml = sys.argv[1:]
 nodes = ET.parse(xml).iter("node")
-if not any("calculator" in n.get("package", "").lower() and
+if not any(n.get("package") == package and
            n.get("clickable") == "false" and
            (n.get("text") == expected or n.get("content-desc") == expected) for n in nodes):
     sys.exit(f"Calculator never displayed {expected} as a readout")
@@ -67,9 +69,13 @@ PY
   return 1
 }
 
-run_task 'Open Calculator and calculate 24 times 17' 408 calculator 90
-run_task 'Open Calculator and clear it, then tap the digit 7' 7 gemma-tap 300
-grep -F 'engine ready backend=CPU' smoke-results/gemma-tap-agent.log
+status=0
+run_task 'Open Calculator and calculate 24 times 17' 408 calculator 90 || status=1
+if run_task 'Open Calculator and clear it, then tap the digit 7' 7 gemma-tap 300; then
+  grep -F 'engine ready backend=CPU' smoke-results/gemma-tap-agent.log || status=1
+else
+  status=1
+fi
 
 # Verify the CPU Qwen model boots independently of Gemma.
 adb shell am force-stop "$package"
@@ -94,7 +100,7 @@ for attempt in $(seq 1 80); do
     adb shell "run-as $package sh -c 'cat files/conversations/*.md'" > smoke-results/qwen-response.txt
     grep -Eq '^nova: .*\b4\b' smoke-results/qwen-response.txt
     echo 'PASS: Qwen 3.5 2B answered using the CPU runtime'
-    exit 0
+    exit "$status"
   fi
   sleep 3
 done
