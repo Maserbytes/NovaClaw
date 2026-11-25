@@ -99,10 +99,15 @@ class NovaAccessibilityService : AccessibilityService() {
     // Observation
     // ------------------------------------------------------------------
 
-    /** Retry transient null roots; distinguish real dialog blocks. */
+    private fun activeRoot(): AccessibilityNodeInfo? = rootInActiveWindow
+        ?: windows.orEmpty().firstOrNull { window ->
+            window.type == AccessibilityWindowInfo.TYPE_APPLICATION && (window.isActive || window.isFocused)
+        }?.root
+
+    /** Retry transient null roots while Android is switching windows. */
     suspend fun captureScreen(goal: String = ""): ScreenSnapshot? = withContext(Dispatchers.Default) {
-        repeat(3) { attempt ->
-            val root = rootInActiveWindow
+        repeat(10) { attempt ->
+            val root = activeRoot()
             if (root != null) {
                 try {
                     return@withContext buildSnapshot(root, goal)
@@ -110,7 +115,7 @@ class NovaAccessibilityService : AccessibilityService() {
                     // Root node is owned by the framework; do not recycle it.
                 }
             }
-            if (attempt < 2) Thread.sleep(150)
+            if (attempt < 9) delay(180)
         }
         null
     }
@@ -228,7 +233,7 @@ class NovaAccessibilityService : AccessibilityService() {
         while (waited < budget) {
             Thread.sleep(100)
             waited += 100
-            val root = rootInActiveWindow ?: continue
+            val root = activeRoot() ?: continue
             val nodes = mutableListOf<String>()
             val queue = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
             queue.add(root to 0)
@@ -253,7 +258,7 @@ class NovaAccessibilityService : AccessibilityService() {
         if (observedGeneration == null) return "No observed generation supplied"
         val current = generation.get()
         if (current != observedGeneration ||
-            rootInActiveWindow?.packageName?.toString() != lastSnapshot?.packageName) {
+            activeRoot()?.packageName?.toString() != lastSnapshot?.packageName) {
             return "The active screen changed. Re-observe before acting."
         }
         return null
@@ -287,7 +292,7 @@ class NovaAccessibilityService : AccessibilityService() {
         }
         val node = lastSnapshot?.node(id)
             ?: return@withContext ActionOutcome(false, "Unknown node $id in current snapshot", "", "", 0L)
-        val root = rootInActiveWindow
+        val root = activeRoot()
             ?: return@withContext ActionOutcome(false, "No active window", "", "", 0L)
         val target = findClickable(root, node)
             ?: return@withContext ActionOutcome(false, "The observed control moved or disappeared", "", "", 0L)
@@ -323,7 +328,7 @@ class NovaAccessibilityService : AccessibilityService() {
         val started = System.currentTimeMillis()
 
         // Prefer the native scroll action on a scrollable container.
-        val root = rootInActiveWindow
+        val root = activeRoot()
         val scrolled = root?.let { scrollNative(it, direction.equals("down", true)) } ?: false
         if (scrolled) {
             val (changed, post) = settleAndFingerprint(pre)
@@ -380,7 +385,7 @@ class NovaAccessibilityService : AccessibilityService() {
                 ?: return@withContext ActionOutcome(false, "Unknown node $id", "", "", 0L)
             val pre = currentFingerprint()
             val started = System.currentTimeMillis()
-            val root = rootInActiveWindow
+            val root = activeRoot()
                 ?: return@withContext ActionOutcome(false, "No active window", pre, pre, 0L)
             val target = findNodeAt(root, nodeInfo.bounds)
             if (target == null) {
@@ -397,7 +402,7 @@ class NovaAccessibilityService : AccessibilityService() {
                         )
                     }
                     accepted = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-                    val fresh = findNodeAt(rootInActiveWindow ?: root, nodeInfo.bounds)
+                    val fresh = findNodeAt(activeRoot() ?: root, nodeInfo.bounds)
                     if (accepted && fresh?.text?.toString() == text) return@run
                     Thread.sleep(150 + attempt * 100L)
                 }
@@ -425,7 +430,7 @@ class NovaAccessibilityService : AccessibilityService() {
         assertFresh(generation)?.let { return@withContext ActionOutcome(false, it, "", "", 0L) }
         val pre = currentFingerprint()
         val started = System.currentTimeMillis()
-        val target = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        val target = activeRoot()?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
             ?.takeIf { it.isEditable && !it.isPassword }
             ?: return@withContext ActionOutcome(false, "Focus a visible text field first", pre, pre, 0L)
 
@@ -457,7 +462,7 @@ class NovaAccessibilityService : AccessibilityService() {
         assertFresh(generation)?.let { return@withContext ActionOutcome(false, it, "", "", 0L) }
         val pre = currentFingerprint()
         val start = System.currentTimeMillis()
-        val target = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        val target = activeRoot()?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         val accepted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             target?.isEditable == true && !target.isPassword &&
             target.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
@@ -468,7 +473,7 @@ class NovaAccessibilityService : AccessibilityService() {
     }
 
     private fun currentFingerprint(): String {
-        val root = rootInActiveWindow ?: return ""
+        val root = activeRoot() ?: return ""
         val parts = mutableListOf<String>()
         val queue = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
         queue.add(root to 0)
@@ -494,7 +499,7 @@ class NovaAccessibilityService : AccessibilityService() {
         startActivity(intent)
         repeat(25) {
             delay(120)
-            if (rootInActiveWindow?.packageName?.toString() == packageName) {
+            if (activeRoot()?.packageName?.toString() == packageName) {
                 val label = intent.component?.let { packageManager.getActivityInfo(it, 0).loadLabel(packageManager) }
                     ?: packageName
                 return@withContext ActionOutcome(true, "Opened $label", pre, currentFingerprint(),

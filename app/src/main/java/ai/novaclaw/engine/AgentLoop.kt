@@ -330,7 +330,9 @@ class AgentLoop(
             for (step in 1..30) {
                 coroutineContext.ensureActive()
                 emit(AgentEvent.State("OBSERVING"))
-                val snapshot = accessibility.captureScreen(deviceGoal)
+                val launching = step == 1 && opening != null && resolvedApp != null
+                val snapshot = if (launching) ScreenSnapshot(0L, context.packageName, "Android", emptyList(), "")
+                    else accessibility.captureScreen(deviceGoal)
                 if (snapshot == null) {
                     val message = if (accessibility.hasBlockingDialog())
                         "A system dialog is blocking automation. Dismiss it and retry."
@@ -338,7 +340,6 @@ class AgentLoop(
                     emit(AgentEvent.Error(message))
                     return
                 }
-                val launching = step == 1 && opening != null && resolvedApp != null
                 if (!launching && resolvedApp != null && snapshot.packageName != resolvedApp) {
                     emit(AgentEvent.Error("${opening.app} is no longer in the foreground. Reopen it and retry."))
                     return
