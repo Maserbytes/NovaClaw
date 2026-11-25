@@ -40,8 +40,10 @@ run_task() {
   while (( SECONDS < deadline )); do
     adb logcat -d -s NovaClaw/Smoke > "smoke-results/$label-task.log"
     if grep -Fq 'Task halted' "smoke-results/$label-task.log"; then
+      adb logcat -d > "smoke-results/$label-failure.log"
       adb shell am start -W -n "$activity"
       sleep 2
+      adb exec-out screencap -p > "smoke-results/$label-failure.png"
       echo "FAIL: NovaClaw reported a task error during $label" >&2
       return 1
     fi
@@ -65,13 +67,14 @@ PY
     fi
     sleep 3
   done
+  adb logcat -d > "smoke-results/$label-failure.log"
   echo "FAIL: $label timed out" >&2
   return 1
 }
 
 status=0
 run_task 'Open Calculator and calculate 24 times 17' 408 calculator 90 || status=1
-if run_task 'Open Calculator and clear it, then tap the digit 7' 7 gemma-tap 300; then
+if run_task 'Open Calculator and show me the calculation history' History gemma-tap 300; then
   grep -F 'engine ready backend=CPU' smoke-results/gemma-tap-agent.log || status=1
 else
   status=1
