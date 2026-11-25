@@ -154,6 +154,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal fun sendEvent(event: AgentEvent) {
+        if (ai.novaclaw.BuildConfig.DEBUG) when (event) {
+            is AgentEvent.Complete -> ai.novaclaw.util.NovaLog.i("Smoke", "Task completed")
+            is AgentEvent.Error -> ai.novaclaw.util.NovaLog.w("Smoke", "Task halted")
+            else -> Unit
+        }
         val json = gson.toJson(event)
         webView.post {
             webView.evaluateJavascript("window.novaOnEvent && window.novaOnEvent($json);", null)

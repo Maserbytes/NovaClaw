@@ -10,7 +10,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: nova-phone-smoke-${{ github.ref }}
+  group: nova-phone-smoke-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:

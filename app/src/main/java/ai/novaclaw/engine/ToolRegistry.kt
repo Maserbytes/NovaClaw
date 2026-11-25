@@ -142,8 +142,7 @@ class ToolRegistry(private val context: Context) {
                         !answer.startsWith("Screenshot unavailable", true),
                     answer, "", "", 0L)
             }
-            "web_search" -> ActionOutcome(true,
-                WebSearchTool.search(args["query"]?.toString().orEmpty()), "", "", 0L)
+            "web_search" -> return WebSearchTool.search(args["query"]?.toString().orEmpty())
             "fetch_url" -> ActionOutcome(true,
                 WebSearchTool.fetch(args["url"]?.toString().orEmpty()), "", "", 0L)
             "skill_install" -> ActionOutcome(true,

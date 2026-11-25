@@ -417,13 +417,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const st = document.getElementById('qwenProgressStatus');
       const badge = document.getElementById('qwenStatusBadge');
       const btnText = document.getElementById('downloadQwenBtnText');
+      if (downloadQwenBtn) downloadQwenBtn.disabled = !/^(SUCCESSFUL|FAILED)/.test(data.status);
       if (box) box.classList.remove('hidden');
       if (bar) bar.style.width = `${percent}%`;
       if (txt) txt.textContent = `${mbSoFar} MB / ${mbTotal} MB (${percent}%)`;
       if (st) st.textContent = data.status;
       if (data.status === 'SUCCESSFUL') {
         if (badge) badge.textContent = 'Installed';
-        if (btnText) btnText.textContent = 'Use this model';
+        modelEngine.setModel('qwen-3.5-4b');
+        if (btnText) btnText.textContent = 'Selected';
         refreshStatus();
       } else if (data.status && data.status.indexOf('FAILED') === 0) {
         if (badge) badge.textContent = 'Failed';
@@ -473,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modelEngine.setModel(model.id);
       closeModelModal();
     } else if (window.AndroidBridge.downloadModel(model.downloadUrl, model.fileName) > 0) {
+      downloadQwenBtn.disabled = true;
       document.getElementById('downloadQwenBtnText').textContent = 'Starting download…';
     }
   });

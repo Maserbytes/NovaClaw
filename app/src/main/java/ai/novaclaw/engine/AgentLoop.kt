@@ -191,6 +191,7 @@ class AgentLoop(
                 emit(AgentEvent.State("THINKING"))
                 var reply = sendWithCloudFallback(chatPrompt, chatSystem, chatTools, cloud)
                 var answer: String? = null
+                var searchSources: String? = null
                 for (turn in 1..4) {
                     coroutineContext.ensureActive()
                     if (reply.toolCalls.isEmpty()) {
@@ -202,12 +203,30 @@ class AgentLoop(
                     emit(AgentEvent.Step(turn, 0L, "Information"))
                     emit(AgentEvent.Action(turn, call.name, describe(call, null)))
                     val result = tools.execute(call.name, call.arguments, null)
-                    emit(AgentEvent.Verification(turn, result.success, result.message, "", ""))
-                    reply = session!!.sendToolResponses(listOf(
-                        call.name to TaskDecision.observation(call.name, "", result),
-                    ))
+                    val display = if (call.name == "web_search" && result.success)
+                        "Found matching sources" else result.message
+                    emit(AgentEvent.Verification(turn, result.success, display, "", ""))
+                    if (call.name == "web_search" && !result.success) {
+                        emit(AgentEvent.Error(result.message))
+                        return
+                    }
+                    if (call.name == "web_search") searchSources = result.message
+                    reply = try {
+                        session!!.sendToolResponses(listOf(
+                            call.name to TaskDecision.observation(call.name, "", result),
+                        ))
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        if (searchSources == null) throw failure
+                        break
+                    }
                 }
 
+                val sources = searchSources
+                if (sources != null) {
+                    answer = if (answer.isNullOrBlank()) sources else "$answer\n\n$sources"
+                }
                 if (answer.isNullOrBlank()) {
                     emit(AgentEvent.Error("The model returned no usable answer. Try again or choose a different model."))
                     return
@@ -250,13 +269,16 @@ class AgentLoop(
                 return
             }
 
+            val calculation = opening?.let { CalculatorTask.parse(it.app, it.remaining) }
+            var calculatorKey = 0
+            var usesKeypad = false
             val isCloud = model.kind == ModelInfo.Kind.CLOUD
             val cloudKey = if (isCloud) CloudConfig.apiKey(context) else ""
-            if (isCloud && cloudKey.isBlank()) {
+            if (calculation == null && isCloud && cloudKey.isBlank()) {
                 emit(AgentEvent.Error("Add a Gemini API key in Model Hub → Cloud / API, then try again."))
                 return
             }
-            if (!isCloud && !ModelCatalog.isInstalled(context, model)) {
+            if (calculation == null && !isCloud && !ModelCatalog.isInstalled(context, model)) {
                 emit(AgentEvent.Error("${model.name} is not installed. Download it from Model Hub → On-Device Models."))
                 return
             }
@@ -275,6 +297,10 @@ class AgentLoop(
 
             suspend fun decide(prompt: String): ai.novaclaw.model.ModelReply {
                 coroutineContext.ensureActive()
+                if (!useCloud && !localReady && !ModelCatalog.isInstalled(context, model)) {
+                    error("Install ${model.name} in Model Hub to continue.")
+                }
+                if (useCloud && cloudKey.isBlank()) error("Add a Gemini API key in Model Hub to continue.")
                 if (!useCloud && !localReady) {
                     emit(AgentEvent.State("LOADING_MODEL"))
                     backend = engine.open(ModelCatalog.path(context, model), preferGpu = false)
@@ -314,7 +340,7 @@ class AgentLoop(
                 }
                 val launching = step == 1 && opening != null && resolvedApp != null
                 if (!launching && resolvedApp != null && snapshot.packageName != resolvedApp) {
-                    emit(AgentEvent.Error("${opening?.app} is no longer in the foreground. Reopen it and retry."))
+                    emit(AgentEvent.Error("${opening.app} is no longer in the foreground. Reopen it and retry."))
                     return
                 }
                 emit(AgentEvent.Step(step, snapshot.generation, snapshot.appName))
@@ -334,8 +360,34 @@ class AgentLoop(
                     return
                 }
 
+                fun calculatorNode(key: String) = snapshot.nodes.filter {
+                    it.clickable && it.label.trim().lowercase() in CalculatorTask.labels(key)
+                }.singleOrNull()
+                val plan = calculation
+                if (plan != null && step == 2) {
+                    usesKeypad = plan.keys.all { calculatorNode(it) != null }
+                }
+                val keypadCall = if (usesKeypad && plan != null) {
+                    if (calculatorKey == plan.keys.size) {
+                        if (!snapshot.nodes.any { it.label.trim().replace(",", "").replace('−', '-') == plan.expected }) {
+                            emit(AgentEvent.Error("Calculator did not display the expected result."))
+                            return
+                        }
+                        ai.novaclaw.model.ToolCall("finish", mapOf("summary" to plan.expected))
+                    } else {
+                        val node = calculatorNode(plan.keys[calculatorKey])
+                        if (node == null) {
+                            emit(AgentEvent.Error("A Calculator key changed or disappeared."))
+                            return
+                        }
+                        ai.novaclaw.model.ToolCall("tap_node", mapOf("node_id" to node.id))
+                    }
+                } else null
+
                 val call = if (launching) {
                     ai.novaclaw.model.ToolCall("open_app", mapOf("app_name" to checkNotNull(opening).app))
+                } else if (keypadCall != null) {
+                    keypadCall
                 } else {
                     fun valid(candidate: ai.novaclaw.model.ToolCall?): Boolean {
                         if (candidate == null) return false
@@ -403,6 +455,16 @@ class AgentLoop(
                     step, result.success, result.message,
                     verification?.preFingerprint.orEmpty(), verification?.postFingerprint.orEmpty(),
                 ))
+
+                if (keypadCall != null && plan != null) {
+                    val key = plan.keys[calculatorKey]
+                    if (!result.success && key !in setOf("clear", "=")) {
+                        emit(AgentEvent.Error(result.message))
+                        return
+                    }
+                    calculatorKey++
+                    if (calculatorKey == plan.keys.size) lastActionSucceeded = true
+                }
 
                 consecutiveFailures = if (result.success) 0 else consecutiveFailures + 1
                 if (consecutiveFailures >= 2) {

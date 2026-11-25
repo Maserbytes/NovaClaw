@@ -134,12 +134,16 @@ object ModelCatalog {
     }
 
     fun delete(context: Context, model: ModelInfo): Boolean {
-        val dir = modelsDir(context)
-        val file = File(dir, model.fileName)
-        File(dir, "${model.fileName}.downloading").delete()
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().remove("hash_${model.id}").apply()
-        return !file.exists() || file.delete()
+        val locations = listOf(modelsDir(context), File(context.filesDir, "models")).distinct()
+        val files = locations.flatMap { dir ->
+            listOf(File(dir, model.fileName), File(dir, "${model.fileName}.downloading"))
+        }
+        val removed = files.map { !it.exists() || it.delete() }.all { it }
+        if (removed) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().remove("hash_${model.id}").apply()
+        }
+        return removed
     }
 
     fun freeSpaceBytes(context: Context): Long =

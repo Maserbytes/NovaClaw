@@ -77,7 +77,8 @@ class LiteRTEngine(private val context: Context) {
                     backend = backend,
                     maxNumTokens = decision.maxTokens,
                     cacheDir = cacheDir,
-                    visionBackend = Backend.CPU(),
+                    visionBackend = if (ModelCatalog.LOCAL.any { it.vision && it.fileName == File(desiredPath).name })
+                        Backend.CPU() else null,
                 )
                 val e = Engine(cfg).also { it.initialize() }
                 if (useGpu) BackendSelector.markGpuSuccess(context, desiredPath)

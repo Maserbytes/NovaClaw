@@ -26,29 +26,47 @@ adb shell settings put secure accessibility_enabled 1
 adb shell run-as "$package" mkdir -p files/models
 adb exec-in "run-as $package sh -c 'cat > files/models/$model'" < "smoke-inputs/$model"
 sleep 4
-goal=$(printf %s 'Open Calculator and calculate 24 times 17' | base64 -w0)
-adb shell am broadcast -a ai.novaclaw.RUN_TASK -n "$package/.automation.ExternalAutomationReceiver" \
-  --es task_b64 "$goal" --es request_id cloud-calculator
-for attempt in $(seq 1 120); do
-  if adb shell uiautomator dump /sdcard/novaclaw-smoke.xml >/dev/null 2>&1; then
-    adb exec-out cat /sdcard/novaclaw-smoke.xml > smoke-results/calculator.xml
-    if python3 - <<'PY'
+run_task() {
+  local prompt="$1" expected="$2" label="$3" timeout="$4"
+  adb shell am start -W -n "$activity"
+  adb logcat -c
+  local goal
+  goal=$(printf %s "$prompt" | base64 -w0)
+  adb shell am broadcast -a ai.novaclaw.RUN_TASK -n "$package/.automation.ExternalAutomationReceiver" \
+    --es task_b64 "$goal" --es request_id "$label"
+  local deadline=$((SECONDS + timeout))
+  while (( SECONDS < deadline )); do
+    adb logcat -d -s NovaClaw/Smoke > "smoke-results/$label-task.log"
+    if grep -Fq 'Task halted' "smoke-results/$label-task.log"; then
+      adb shell am start -W -n "$activity"
+      sleep 2
+      echo "FAIL: NovaClaw reported a task error during $label" >&2
+      return 1
+    fi
+    if grep -Fq 'Task completed' "smoke-results/$label-task.log" &&
+        timeout 15 adb shell uiautomator dump /sdcard/novaclaw-smoke.xml >/dev/null 2>&1; then
+      adb exec-out cat /sdcard/novaclaw-smoke.xml > "smoke-results/$label.xml"
+      adb logcat -d -s NovaClaw/AgentLoop > "smoke-results/$label-agent.log"
+      python3 - "$expected" "smoke-results/$label.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
-try:
-    nodes = ET.parse("smoke-results/calculator.xml").iter("node")
-    sys.exit(not any("calculator" in n.get("package", "").lower() and
-                     (n.get("text") == "408" or n.get("content-desc") == "408") for n in nodes))
-except ET.ParseError:
-    sys.exit(1)
+expected, xml = sys.argv[1:]
+nodes = ET.parse(xml).iter("node")
+if not any("calculator" in n.get("package", "").lower() and
+           n.get("clickable") == "false" and
+           (n.get("text") == expected or n.get("content-desc") == expected) for n in nodes):
+    sys.exit(f"Calculator never displayed {expected} as a readout")
 PY
-    then
-      adb logcat -d -s NovaClaw/AgentLoop | grep -F 'engine ready backend=CPU'
-      echo 'PASS: on-device model ran and Calculator displayed 408'
-      exit 0
+      adb exec-out screencap -p > "smoke-results/$label-screen.png"
+      echo "PASS: $label displayed $expected and NovaClaw completed"
+      return 0
     fi
-  fi
-  sleep 4
-done
-echo 'FAIL: Calculator never displayed 408' >&2
-exit 1
+    sleep 3
+  done
+  echo "FAIL: $label timed out" >&2
+  return 1
+}
+
+run_task 'Open Calculator and calculate 24 times 17' 408 calculator 90
+run_task 'Open Calculator and clear it, then tap the digit 7' 7 gemma-tap 300
+grep -F 'engine ready backend=CPU' smoke-results/gemma-tap-agent.log
