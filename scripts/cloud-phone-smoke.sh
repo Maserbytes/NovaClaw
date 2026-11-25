@@ -17,16 +17,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 if ! adb shell pm list packages | grep -Eiq '^package:.*calculator'; then
   adb install -r smoke-inputs/calculator.apk
 fi
+adb shell run-as "$package" mkdir -p shared_prefs
+printf '%s\n' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="external_automation_enabled" value="true"/></map>' |
+  adb exec-in "run-as $package sh -c 'cat > shared_prefs/nova_settings.xml'"
 adb shell am start -W -n "$activity"
 adb shell settings put secure enabled_accessibility_services "$service"
 adb shell settings put secure accessibility_enabled 1
-sleep 3
-adb shell run-as "$package" mkdir -p shared_prefs "/sdcard/Android/data/$package/files/models"
-printf '%s\n' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="external_automation_enabled" value="true"/></map>' |
-  adb exec-in "run-as $package sh -c 'cat > shared_prefs/nova_settings.xml'"
+adb shell run-as "$package" mkdir -p "/sdcard/Android/data/$package/files/models"
 adb exec-in "run-as $package sh -c 'cat > /sdcard/Android/data/$package/files/models/$model'" < "smoke-inputs/$model"
-adb shell am force-stop "$package"
-adb shell am start -W -n "$activity"
 sleep 4
 goal=$(printf %s 'Open Calculator and calculate 24 times 17' | base64 -w0)
 adb shell am broadcast -a ai.novaclaw.RUN_TASK -n "$package/.automation.ExternalAutomationReceiver" \

@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   emulator:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,9 @@ jobs:
           gradle-version: '8.13'
       - name: Build app and run JVM tests
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f -print -quit)
+          test -x "$sdkmanager"
+          "$sdkmanager" "platforms;android-36" "build-tools;36.0.0"
           gradle testDebugUnitTest assembleDebug --console=plain --stacktrace
       - name: Enable emulator acceleration
         run: sudo setfacl -m u:"$USER":rw /dev/kvm
