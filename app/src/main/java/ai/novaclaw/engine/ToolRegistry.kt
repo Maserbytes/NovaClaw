@@ -86,8 +86,15 @@ class ToolRegistry(private val context: Context) {
         val generation = snapshot?.generation
 
         val outcome: ActionOutcome? = when (tool) {
-            "open_app" -> service!!.openApp(service.resolvePackage(args["app_name"]?.toString().orEmpty())
-                ?: args["app_name"]?.toString().orEmpty())
+            "open_app" -> {
+                val requested = args["app_name"]?.toString().orEmpty()
+                val target = service!!.resolvePackage(requested)
+                    ?: return ToolResult(false, "No uniquely matching app found for '$requested'")
+                if (target == context.packageName) {
+                    return ToolResult(false, "NovaClaw cannot automate its own task screen")
+                }
+                service.openApp(target)
+            }
 
             "tap_node" -> {
                 val id = args["node_id"]?.toString().orEmpty()

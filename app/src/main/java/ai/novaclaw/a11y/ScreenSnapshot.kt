@@ -37,24 +37,20 @@ data class ScreenSnapshot(
     val capturedAt: Long = System.currentTimeMillis(),
 ) {
     /** Compact prompt, ~250 tokens: Set-of-Marks instead of a raw 15k-token tree. */
-    fun compactPrompt(goal: String): String = buildString {
+    fun compactPrompt(goal: String, showControls: Boolean = true): String = buildString {
         append("GOAL: ").append(goal).append('\n')
         append("APP: ").append(appName).append(" (").append(packageName).append(")\n")
         append("SCREEN [").append(generation).append("]:\n")
-        nodes.take(MAX_PROMPT_NODES).forEach { n ->
-            val flags = buildString {
-                if (n.clickable) append('C')
-                if (n.editable) append('E')
-                if (n.scrollable) append('S')
-                if (isEmpty()) append('-')
-            }
-            append('[').append(n.id).append("] \"")
-                .append(n.label.take(64).replace('\n', ' '))
-                .append("\" ").append(n.type).append(' ').append(flags)
-                .append(" @").append(n.centerX).append(',').append(n.centerY).append('\n')
+        if (!showControls) {
+            append("NovaClaw's own task log is hidden. Open the app needed for the goal.")
+            return@buildString
         }
-        append("RULES: one tool per turn; use tap_node with the id from this screen; ")
-        append("re-observe after each action; call finish(summary) when done.")
+        nodes.sortedByDescending { it.clickable }.take(MAX_PROMPT_NODES).forEach { node ->
+            if (node.clickable) append("TAP [").append(node.id).append("] ")
+            else append("READ ")
+            append(node.label.take(64).replace('\n', ' ')).append('\n')
+        }
+        append("Only use IDs on TAP lines for tap_node. READ lines describe state.")
     }
 
     fun node(id: String): UiNode? = nodes.firstOrNull { it.id.equals(id, true) }

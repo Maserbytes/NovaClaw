@@ -510,12 +510,11 @@ class NovaAccessibilityService : AccessibilityService() {
         if (query.isEmpty()) return null
         val apps = packageManager.getInstalledApplications(0)
             .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
-        apps.firstOrNull {
-            it.packageName.equals(query, true) ||
-                packageManager.getApplicationLabel(it).toString().equals(query, true)
-        }?.let { return it.packageName }
-        return apps.filter { packageManager.getApplicationLabel(it).toString().contains(query, true) }
-            .singleOrNull()?.packageName
+        apps.firstOrNull { it.packageName.equals(query, true) }?.let { return it.packageName }
+        val labeled = apps.map { it.packageName to packageManager.getApplicationLabel(it).toString() }
+        val exact = labeled.filter { (_, label) -> label.equals(query, true) }
+        if (exact.isNotEmpty()) return exact.singleOrNull()?.first
+        return labeled.filter { (_, label) -> label.contains(query, true) }.singleOrNull()?.first
     }
 
 

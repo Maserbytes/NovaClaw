@@ -5,6 +5,18 @@ object TaskShortcuts {
 
     data class Shortcut(val tool: String, val args: Map<String, Any>, val summary: String)
 
+    data class AppOpening(val app: String, val remaining: String)
+
+    private val opening = Regex(
+        """^\s*(?:please\s+)?(?:open|launch|start)\s+(.+?)(?:\s*,\s*(?:and\s+)?then\s+|\s+(?:and then|and|then|to)\s+)(\S.*)$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    fun openingFor(goal: String): AppOpening? {
+        val match = opening.matchEntire(goal) ?: return null
+        return AppOpening(match.groupValues[1].trim(), match.groupValues[2].trim())
+    }
+
     fun match(goal: String): Shortcut? {
         val g = goal.trim().lowercase()
         when (g) {

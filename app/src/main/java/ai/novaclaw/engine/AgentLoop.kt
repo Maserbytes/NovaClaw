@@ -243,6 +243,13 @@ class AgentLoop(
                 return
             }
 
+            val opening = TaskShortcuts.openingFor(goal)
+            val resolvedApp = opening?.let { accessibility.resolvePackage(it.app) }
+            if (opening != null && (resolvedApp == null || resolvedApp == context.packageName)) {
+                emit(AgentEvent.Error("Couldn't find a unique installed app named ${opening.app}. Use its exact launcher name."))
+                return
+            }
+
             val isCloud = model.kind == ModelInfo.Kind.CLOUD
             val cloudKey = if (isCloud) CloudConfig.apiKey(context) else ""
             if (isCloud && cloudKey.isBlank()) {
@@ -253,23 +260,36 @@ class AgentLoop(
                 emit(AgentEvent.Error("${model.name} is not installed. Download it from Model Hub → On-Device Models."))
                 return
             }
-            if (!isCloud) emit(AgentEvent.State("LOADING_MODEL"))
-            val backend = if (isCloud) "Gemini Flash (cloud)" else
-                engine.open(ModelCatalog.path(context, model), preferGpu = false)
-            NovaLog.i(tag, "engine ready backend=$backend")
-
-            val playbook = PlaybookManager.match(goal)
-            val selectedTools = ToolSelector.select(goal, toolsFor(model)) + TaskDecision.blocked
-            val systemPrompt = PromptComposer.compose(context, playbook) + "\n\n" +
-                TaskDecision.instructions(selectedTools)
+            var backend = "Gemini Flash (cloud)"
+            var localReady = false
             var useCloud = isCloud
+            val deviceGoal = opening?.remaining ?: goal
+            val available = toolsFor(model)
+            val selectedTools = if (opening != null) {
+                available.filter { it.name in setOf("tap_node", "t", "scroll", "system_key", "finish") }
+            } else ToolSelector.select(goal, available)
+            val allowed = selectedTools + TaskDecision.blocked
+            val playbook = PlaybookManager.match(deviceGoal)
+            val systemPrompt = PromptComposer.compose(context, playbook) + "\n\n" +
+                TaskDecision.instructions(allowed)
+
             suspend fun decide(prompt: String): ai.novaclaw.model.ModelReply {
                 coroutineContext.ensureActive()
+                if (!useCloud && !localReady) {
+                    emit(AgentEvent.State("LOADING_MODEL"))
+                    backend = engine.open(ModelCatalog.path(context, model), preferGpu = false)
+                    localReady = true
+                    NovaLog.i(tag, "engine ready backend=$backend")
+                }
+                emit(AgentEvent.State("THINKING"))
                 session?.close()
                 session = if (useCloud) openCloudWithFallback(cloudKey, systemPrompt, emptyList())
                 else engine.openSession(systemPrompt, emptyList(), temperature = 0.2)
                 val reply = sendWithCloudFallback(prompt, systemPrompt, emptyList(), useCloud)
-                if (session is LiteRTEngine.Session) useCloud = false
+                if (session is LiteRTEngine.Session) {
+                    useCloud = false
+                    localReady = true
+                }
                 return reply
             }
 
@@ -284,7 +304,7 @@ class AgentLoop(
             for (step in 1..30) {
                 coroutineContext.ensureActive()
                 emit(AgentEvent.State("OBSERVING"))
-                val snapshot = accessibility.captureScreen(goal)
+                val snapshot = accessibility.captureScreen(deviceGoal)
                 if (snapshot == null) {
                     val message = if (accessibility.hasBlockingDialog())
                         "A system dialog is blocking automation. Dismiss it and retry."
@@ -292,10 +312,15 @@ class AgentLoop(
                     emit(AgentEvent.Error(message))
                     return
                 }
+                val launching = step == 1 && opening != null && resolvedApp != null
+                if (!launching && resolvedApp != null && snapshot.packageName != resolvedApp) {
+                    emit(AgentEvent.Error("${opening?.app} is no longer in the foreground. Reopen it and retry."))
+                    return
+                }
                 emit(AgentEvent.Step(step, snapshot.generation, snapshot.appName))
 
                 val prompt = buildString {
-                    append(snapshot.compactPrompt(goal))
+                    append(snapshot.compactPrompt(deviceGoal, showControls = snapshot.packageName != context.packageName))
                     if (observations.isNotEmpty()) {
                         appendLine("\nRecent tool results (ok = verified):")
                         observations.takeLast(2).forEach { appendLine(it) }
@@ -309,20 +334,39 @@ class AgentLoop(
                     return
                 }
 
-                emit(AgentEvent.State("THINKING"))
-                var reply = decide(prompt)
-                var call = TaskDecision.parse(reply.text, selectedTools)
-                if (call == null || (call.name == "finish" &&
-                        !TaskDecision.canFinish(call, canAnswerFromScreen && snapshot.nodes.isNotEmpty(), lastActionSucceeded))) {
-                    reply = decide("$prompt\nUse a phone action or blocked if you cannot act. Output only JSON.")
-                    call = TaskDecision.parse(reply.text, selectedTools)
-                }
-                if (call == null) {
-                    emit(AgentEvent.Error("The model could not choose a valid phone action."))
-                    return
+                val call = if (launching) {
+                    ai.novaclaw.model.ToolCall("open_app", mapOf("app_name" to checkNotNull(opening).app))
+                } else {
+                    fun valid(candidate: ai.novaclaw.model.ToolCall?): Boolean {
+                        if (candidate == null) return false
+                        if (candidate.name == "tap_node") {
+                            return snapshot.packageName != context.packageName &&
+                                snapshot.node(candidate.arguments["node_id"].toString())?.clickable == true
+                        }
+                        if (candidate.name == "finish") {
+                            return TaskDecision.canFinish(candidate,
+                                canAnswerFromScreen && snapshot.nodes.isNotEmpty() &&
+                                    snapshot.packageName != context.packageName, lastActionSucceeded)
+                        }
+                        return snapshot.packageName != context.packageName ||
+                            candidate.name in setOf("open_app", "blocked", "system_key")
+                    }
+
+                    var reply = decide(prompt)
+                    var candidate = TaskDecision.parse(reply.text, allowed)
+                    if (!valid(candidate)) {
+                        reply = decide("$prompt\nYour previous choice was invalid. For a tap, choose an ID " +
+                            "marked TAP. Use blocked only when the requested control is unavailable.")
+                        candidate = TaskDecision.parse(reply.text, allowed)
+                    }
+                    if (candidate == null || !valid(candidate)) {
+                        emit(AgentEvent.Error("The model could not choose a valid action on ${snapshot.appName}."))
+                        return
+                    }
+                    emit(AgentEvent.Thought(step, thoughtFor(reply, "Selected ${candidate.name}"), reply.backend.ifBlank { backend }))
+                    candidate
                 }
 
-                emit(AgentEvent.Thought(step, thoughtFor(reply, "Selected ${call.name}"), reply.backend.ifBlank { backend }))
                 when (call.name) {
                     "blocked" -> {
                         emit(AgentEvent.Error(call.arguments.getValue("summary").toString()))
@@ -347,8 +391,13 @@ class AgentLoop(
                 emit(AgentEvent.Action(step, call.name, target))
                 val result = tools.execute(call.name, call.arguments, snapshot)
                 actionCount++
-                lastActionSucceeded = result.success
+                lastActionSucceeded = result.success && !launching
                 observations.add(TaskDecision.observation(call.name, target, result))
+                if (launching && !result.success) {
+                    emit(AgentEvent.Verification(step, false, result.message, "", ""))
+                    emit(AgentEvent.Error(result.message))
+                    return
+                }
                 val verification = result.verification
                 emit(AgentEvent.Verification(
                     step, result.success, result.message,
