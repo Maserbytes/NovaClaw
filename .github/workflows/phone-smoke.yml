@@ -25,7 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          build_run=45691187493
+          build_run=45694176984
           build_sha=$(gh run view "$build_run" --json headSha --jq .headSha)
           if ! git diff --quiet "$build_sha" HEAD -- app build.gradle.kts settings.gradle.kts gradle.properties; then
             echo "App sources changed. Waiting for the APK from $GITHUB_SHA."

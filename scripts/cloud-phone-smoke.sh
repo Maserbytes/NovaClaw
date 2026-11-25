@@ -13,6 +13,10 @@ capture() {
 }
 trap capture EXIT
 
+# The emulator launcher can show an unrelated ANR while APKs and weights are provisioned.
+# Keep OS error dialogs out of the UI assertions, while checking NovaClaw ANRs separately.
+adb shell settings put global hide_error_dialogs 1
+adb shell settings put secure anr_show_background 0
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 calculator=$(adb shell pm list packages | tr -d '\r' | sed -n 's/^package:\(.*calculator.*\)$/\1/p' | head -n 1)
 if test -z "$calculator"; then
@@ -31,6 +35,7 @@ sleep 4
 run_task() {
   local prompt="$1" expected="$2" label="$3" timeout="$4"
   adb shell am start -W -n "$activity"
+  sleep 2
   adb logcat -c
   local goal
   goal=$(printf %s "$prompt" | base64 -w0)
@@ -103,6 +108,7 @@ for attempt in $(seq 1 80); do
     adb shell "run-as $package sh -c 'cat files/conversations/*.md'" > smoke-results/qwen-response.txt
     grep -Eq '^nova: .*\b4\b' smoke-results/qwen-response.txt
     echo 'PASS: Qwen 3.5 2B answered using the CPU runtime'
+    if adb logcat -d -b events -s am_anr | grep -F 'ai.novaclaw'; then exit 1; fi
     exit "$status"
   fi
   sleep 3
