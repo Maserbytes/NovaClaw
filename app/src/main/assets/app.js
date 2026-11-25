@@ -1,99 +1,6 @@
-/**
- * NovaClaw Application Controller
- * Replicates the clean, minimalist ChatGPT Mobile UI with slide-out navigation drawer
- * and direct on-device model downloader & execution engine.
- */
-
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Initialize Engines
-  const pruner = new SemanticUIPruner({ viewportWidth: window.innerWidth || 390, viewportHeight: window.innerHeight || 844 });
-  const safetyShield = new SafetyShield();
-  const verifier = new ActionVerifier({ settleDelayMs: 350 });
   const modelEngine = new ModelEngine();
-
   const isAndroidNative = typeof window.AndroidBridge !== 'undefined';
-
-  // 2. Real Mobile Device Environment vs Web Simulation
-  class DeviceEnvironment {
-    constructor() {
-      this.isNative = isAndroidNative;
-      this.simScreen = (typeof MOCK_APPS !== 'undefined') ? MOCK_APPS.HOME_SCREEN : { packageName: 'home', elements: [] };
-      this.activeConversationText = '';
-    }
-
-    getCurrentScreen() {
-      if (this.isNative) {
-        try {
-          const rawJson = window.AndroidBridge.captureScreen();
-          const parsed = JSON.parse(rawJson || '{}');
-          if (parsed.elements && parsed.elements.length > 0) {
-            return {
-              packageName: parsed.packageName || 'active.app',
-              appName: parsed.packageName || 'Active App',
-              elements: parsed.elements.map(e => ({
-                id: e.id,
-                type: e.type,
-                label: e.label,
-                text: e.label,
-                clickable: e.clickable,
-                editable: e.editable,
-                scrollable: e.scrollable,
-                bounds: { x: (e.center?.x || 100) - 20, y: (e.center?.y || 100) - 20, width: 40, height: 40 },
-                center: e.center || { x: 100, y: 100 }
-              }))
-            };
-          }
-        } catch (e) {
-          console.warn('[NovaClaw] Screen capture error:', e);
-        }
-      }
-      return this.simScreen;
-    }
-
-    async executeAction(action) {
-      if (this.isNative) {
-        if (action.type === 'launch_app') {
-          window.AndroidBridge.launchApp(action.payload);
-          await new Promise(r => setTimeout(r, 1200));
-        } else if (action.type === 'click' && action.targetElement?.center) {
-          window.AndroidBridge.performTap(action.targetElement.center.x, action.targetElement.center.y);
-          await new Promise(r => setTimeout(r, 750));
-        } else if (action.type === 'scroll') {
-          window.AndroidBridge.performScroll(action.payload || 'down');
-          await new Promise(r => setTimeout(r, 850));
-        } else if (action.type === 'type') {
-          window.AndroidBridge.performText(action.targetId || 1, action.payload || '');
-          await new Promise(r => setTimeout(r, 600));
-        } else if (action.type === 'key_back') {
-          window.AndroidBridge.performBack();
-          await new Promise(r => setTimeout(r, 600));
-        } else if (action.type === 'key_home') {
-          window.AndroidBridge.performHome();
-          await new Promise(r => setTimeout(r, 600));
-        }
-        return;
-      }
-
-      // Simulation fallback for web preview
-      if (typeof MOCK_APPS === 'undefined') return;
-      if (action.type === 'launch_app') {
-        const pkg = (action.payload || '').toLowerCase();
-        if (pkg.includes('whatsapp')) this.simScreen = MOCK_APPS.WHATSAPP_CHAT_LIST;
-        else if (pkg.includes('ubereats')) this.simScreen = MOCK_APPS.UBER_EATS_CATALOG;
-        else if (pkg.includes('settings')) this.simScreen = MOCK_APPS.SETTINGS_MAIN;
-        else if (pkg.includes('bank')) this.simScreen = MOCK_APPS.BANK_PROTECTED_APP;
-      } else if (action.type === 'click') {
-        const label = (action.targetElement?.label || '').toLowerCase();
-        if (label.includes('sarah') || action.targetId === 7) this.simScreen = MOCK_APPS.WHATSAPP_CHAT_CONVERSATION;
-        else if (label.includes('latte') || label.includes('coffee')) this.simScreen = MOCK_APPS.UBER_EATS_PRODUCT;
-        else if (label.includes('battery')) this.simScreen = MOCK_APPS.SETTINGS_BATTERY;
-      } else if (action.type === 'type') {
-        this.activeConversationText = action.payload;
-      }
-    }
-  }
-
-  const deviceEnv = new DeviceEnvironment();
 
   // 3. UI Element References
   const openDrawerBtn = document.getElementById('openDrawerBtn');
@@ -167,8 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveGeminiKeyBtn = document.getElementById('saveGeminiKeyBtn');
   const geminiKeyStatus = document.getElementById('geminiKeyStatus');
   const geminiActiveBadge = document.getElementById('geminiActiveBadge');
-  const ollamaEndpointInput = document.getElementById('ollamaEndpointInput');
-  const saveOllamaBtn = document.getElementById('saveOllamaBtn');
 
   // Safety Modal
   const safetyModal = document.getElementById('safetyModal');
@@ -239,49 +144,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (isAndroidNative && window.AndroidBridge.checkModelStatus) {
       try {
-        const gemmaModel = AVAILABLE_MODELS.find(m => m.id === 'gemma-4-2b-it');
-        const gemmaStatus = JSON.parse(window.AndroidBridge.checkModelStatus(gemmaModel.fileName) || '{}');
-        if (gemmaStatus.installed) {
-          if (gemmaStatusBadge) {
-            gemmaStatusBadge.textContent = 'Installed';
-            gemmaStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
+        const downloads = [
+          ['gemma-4-2b-it', 'gemma', downloadGemmaBtnText, gemmaDeleteBtn],
+          ['gemma-4-4b-it', 'e4b', downloadE4bBtnText, e4bDeleteBtn],
+          ['qwen-3.5-4b', 'qwen', document.getElementById('downloadQwenBtnText'), null]
+        ];
+        for (const [id, prefix, buttonLabel, deleteButton] of downloads) {
+          const model = AVAILABLE_MODELS.find(item => item.id === id);
+          const installed = modelEngine.isModelReady(model);
+          const active = installed && activeModel.id === id;
+          const progress = document.getElementById(prefix + 'DownloadProgressBox');
+          if (installed || progress.classList.contains('hidden')) {
+            const badge = document.getElementById(prefix + 'StatusBadge');
+            badge.textContent = active ? 'In use' : installed ? 'Installed' : 'Not installed';
+            buttonLabel.textContent = active ? 'Selected' : installed ? 'Use this model' : 'Download · ' + model.size;
           }
-          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = '✓ Active Model (Ready)';
-          if (downloadGemmaBtn) {
-            downloadGemmaBtn.className = 'w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
-          }
-          if (gemmaDeleteBtn) gemmaDeleteBtn.classList.remove('hidden');
-          if (gemmaDownloadProgressBox) gemmaDownloadProgressBox.classList.add('hidden');
-        } else {
-          if (downloadGemmaBtnText) downloadGemmaBtnText.textContent = 'Download Gemma 4 E2B (2.58 GB)';
-          if (downloadGemmaBtn) {
-            downloadGemmaBtn.className = 'w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
-          }
-          if (gemmaDeleteBtn) gemmaDeleteBtn.classList.add('hidden');
-        }
-
-        const e4bModel = AVAILABLE_MODELS.find(m => m.id === 'gemma-4-4b-it');
-        const e4bStatus = e4bModel ? JSON.parse(window.AndroidBridge.checkModelStatus(e4bModel.fileName) || '{}') : {};
-        if (e4bStatus.installed) {
-          if (e4bStatusBadge) {
-            e4bStatusBadge.textContent = 'Installed';
-            e4bStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
-          }
-          if (downloadE4bBtnText) downloadE4bBtnText.textContent = '✓ Active Model (Ready)';
-          if (downloadE4bBtn) {
-            downloadE4bBtn.className = 'w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow transition-all';
-          }
-          if (e4bDeleteBtn) e4bDeleteBtn.classList.remove('hidden');
-          if (e4bDownloadProgressBox) e4bDownloadProgressBox.classList.add('hidden');
-          if (!gemmaStatus.installed) {
-            modelEngine.setModel('gemma-4-4b-it');
-          }
-        } else {
-          if (downloadE4bBtnText) downloadE4bBtnText.textContent = 'Download Gemma 4 E4B (3.65 GB)';
-          if (downloadE4bBtn) {
-            downloadE4bBtn.className = 'w-full py-2 bg-[#333333] hover:bg-[#3D3D3D] text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all';
-          }
-          if (e4bDeleteBtn) e4bDeleteBtn.classList.add('hidden');
+          if (installed) progress.classList.add('hidden');
+          deleteButton?.classList.toggle('hidden', !installed);
         }
       } catch (e) {
         console.warn('Model status check error:', e);
@@ -289,9 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (modelEngine.geminiApiKey) {
-      if (geminiKeyStatus) geminiKeyStatus.textContent = '✓ Cloud reasoning active with Google Gemini Flash';
+      if (geminiKeyStatus) geminiKeyStatus.textContent = 'API key saved on this phone.';
+      if (saveGeminiKeyBtn) saveGeminiKeyBtn.textContent = 'Use Gemini';
       if (geminiActiveBadge) {
-        geminiActiveBadge.textContent = 'Active (Real LLM)';
+        geminiActiveBadge.textContent = activeModel.kind === 'cloud' ? 'In use' : 'Available';
         geminiActiveBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/60';
       }
     } else {
@@ -304,17 +184,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Model Banner on Home Screen
     if (isReady) {
       if (setupModelBanner) setupModelBanner.classList.add('hidden');
-      const shortName = modelEngine.geminiApiKey ? 'Gemini Flash' : (activeModel.name.split(' ')[1] || 'Gemma');
-      if (activeModelShortLabel) activeModelShortLabel.textContent = shortName;
+      const shortName = activeModel.name;
+      if (activeModelShortLabel) activeModelShortLabel.textContent = 'Ready';
       if (drawerModelPill) drawerModelPill.textContent = shortName;
-      if (headerStatusText) headerStatusText.textContent = modelEngine.geminiApiKey ? 'NovaClaw (Cloud)' : 'NovaClaw Ready';
-      if (headerStatusDot) headerStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+      headerStatusText.textContent = activeModel.kind === 'cloud' ? 'Cloud · ' + shortName : 'On-device · ' + shortName;
     } else {
       if (setupModelBanner && isAndroidNative) setupModelBanner.classList.remove('hidden');
-      if (activeModelShortLabel) activeModelShortLabel.textContent = 'Set Up LLM';
-      if (headerStatusText) headerStatusText.textContent = 'Set Up LLM';
-      if (headerStatusDot) headerStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse';
+      if (activeModelShortLabel) activeModelShortLabel.textContent = 'Choose';
+      headerStatusText.textContent = isAndroidNative ? 'Choose a model' : 'Browser preview';
     }
+    headerStatusDot.dataset.ready = isReady;
   }
 
   // Hook for Native Android onResume
@@ -362,6 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 7. Model Hub Modal Handlers
   function openModelModal() {
     modelModal.classList.remove('hidden');
+    if (modelEngine.getSelectedModel().kind === 'cloud') tabCloudApiBtn.click();
+    else tabOnDeviceBtn.click();
+    closeModelModalBtn.focus();
     refreshStatus();
   }
 
@@ -541,7 +423,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (st) st.textContent = data.status;
       if (data.status === 'SUCCESSFUL') {
         if (badge) badge.textContent = 'Installed';
-        if (btnText) btnText.textContent = 'Active Model (Installed)';
+        if (btnText) btnText.textContent = 'Use this model';
+        refreshStatus();
       } else if (data.status && data.status.indexOf('FAILED') === 0) {
         if (badge) badge.textContent = 'Failed';
         if (btnText) btnText.textContent = 'Retry Download Qwen 3.5 4B';
@@ -570,41 +453,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Save Cloud Gemini API Key
-  if (saveGeminiKeyBtn && geminiApiKeyInput) {
-    if (modelEngine.geminiApiKey) geminiApiKeyInput.value = modelEngine.geminiApiKey;
+  saveGeminiKeyBtn?.addEventListener('click', () => {
+    const key = geminiApiKeyInput.value.trim();
+    if (!key && !modelEngine.geminiApiKey) {
+      geminiApiKeyInput.focus();
+      return;
+    }
+    if (key) modelEngine.setGeminiApiKey(key);
+    geminiApiKeyInput.value = '';
+    modelEngine.setModel('api-gemini');
+    closeModelModal();
+  });
 
-    saveGeminiKeyBtn.addEventListener('click', () => {
-      const key = geminiApiKeyInput.value.trim();
-      if (key) {
-        modelEngine.setGeminiApiKey(key);
-        modelEngine.setModel('api-gemini');
-        if (geminiKeyStatus) geminiKeyStatus.textContent = '✓ Saved! Gemini Flash Active.';
-        refreshStatus();
-        closeModelModal();
-      }
-    });
-  }
-
-  // Save Ollama Endpoint
-  if (saveOllamaBtn && ollamaEndpointInput) {
-    saveOllamaBtn.addEventListener('click', () => {
-      const endpoint = ollamaEndpointInput.value.trim();
-      if (endpoint) {
-        modelEngine.setOllamaEndpoint(endpoint);
-        modelEngine.setModel('local-ollama');
-        alert(`Connected to Ollama: ${endpoint}`);
-        refreshStatus();
-        closeModelModal();
-      }
-    });
-  }
+  const downloadQwenBtn = document.getElementById('downloadQwenBtn');
+  downloadQwenBtn?.addEventListener('click', () => {
+    if (!isAndroidNative) return;
+    const model = AVAILABLE_MODELS.find(item => item.id === 'qwen-3.5-4b');
+    if (modelEngine.isModelReady(model)) {
+      modelEngine.setModel(model.id);
+      closeModelModal();
+    } else if (window.AndroidBridge.downloadModel(model.downloadUrl, model.fileName) > 0) {
+      document.getElementById('downloadQwenBtnText').textContent = 'Starting download…';
+    }
+  });
 
   // 8. Stream Rendering Helpers (ChatGPT Mobile Style)
   let activeAssistantContainer = null;
 
   function addUserMessage(text) {
     homePromptSection.classList.add('hidden');
+    document.getElementById('thoughtList').replaceChildren();
 
     const row = document.createElement('div');
     row.className = 'flex justify-end my-2';
@@ -628,85 +506,65 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollToBottom();
   }
 
-  function appendThoughtToStream(stepIndex, thoughtText, plan) {
-    if (!activeAssistantContainer) createAssistantSlot();
-
-    const activeModel = modelEngine.getSelectedModel();
-    const modelBadge = activeModel.id === 'api-gemini' ? 'Gemini Flash' : (activeModel.id === 'local-ollama' ? 'Ollama' : 'Gemma 4 Local');
-
-    // Reasoning goes into the side panel; the chat stream stays clean.
+  function appendThoughtToStream(stepIndex, thoughtText, backend) {
     const list = document.getElementById('thoughtList');
-    if (list) {
-      const item = document.createElement('div');
-      item.className = 'p-3 rounded-xl bg-[#1C1C1E] border-l-2 border-purple-600';
-      item.innerHTML = `<div class="text-[10px] text-purple-300 font-semibold mb-1">Step ${stepIndex} • ${escapeHtml(modelBadge)}</div>
-        <div class="whitespace-pre-wrap leading-relaxed">${escapeHtml(thoughtText)}</div>`;
-      list.appendChild(item);
-      list.scrollTop = list.scrollHeight;
-      openThoughtPanel();
-    }
-
-    const block = document.createElement('div');
-    block.id = `turn-step-${stepIndex}`;
-    block.className = 'space-y-1 text-xs';
-    block.innerHTML = '<div class="action-row pt-0.5"></div><div class="verify-row"></div>';
-    activeAssistantContainer.appendChild(block);
-    scrollToBottom();
+    const item = document.createElement('div');
+    item.className = 'model-detail';
+    const title = document.createElement('strong');
+    title.textContent = stepIndex > 0 ? 'Step ' + stepIndex + ' · ' + backend : backend;
+    const detail = document.createElement('p');
+    detail.textContent = thoughtText;
+    item.append(title, detail);
+    list.appendChild(item);
+    list.scrollTop = list.scrollHeight;
   }
 
   function openThoughtPanel() {
-    const p = document.getElementById('thoughtPanel');
-    if (p) { p.classList.remove('hidden'); p.classList.add('flex'); }
+    document.getElementById('thoughtPanel').classList.replace('hidden', 'flex');
+    document.getElementById('thoughtToggleBtn').setAttribute('aria-expanded', 'true');
+    document.getElementById('closeThoughtBtn').focus();
   }
+
   function closeThoughtPanel() {
-    const p = document.getElementById('thoughtPanel');
-    if (p) { p.classList.add('hidden'); p.classList.remove('flex'); }
+    const panel = document.getElementById('thoughtPanel');
+    if (panel.classList.replace('flex', 'hidden')) {
+      const toggle = document.getElementById('thoughtToggleBtn');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.focus();
+    }
   }
+
+  const toolLabels = {
+    open_app: 'Open app', tap_node: 'Tap control', tap: 'Tap screen', t: 'Enter text',
+    scroll: 'Scroll', system_key: 'Navigate', get_device_info: 'Read device information',
+    web_search: 'Search the web', fetch_url: 'Read web page', see_screen: 'Inspect screen',
+    send_message: 'Send message', get_notifications: 'Read notifications'
+  };
 
   function appendActionToStream(stepIndex, action) {
-    const block = document.getElementById(`turn-step-${stepIndex}`);
-    if (!block) return;
-
-    const row = block.querySelector('.action-row');
-    let tagClass = 'action-tag-click';
-    let icon = '👆';
-
-    if (action.type === 'type') {
-      tagClass = 'action-tag-type';
-      icon = '⌨️';
-    } else if (action.type === 'launch_app') {
-      tagClass = 'action-tag-launch';
-      icon = '🚀';
-    } else if (action.type === 'scroll') {
-      tagClass = 'action-tag-click';
-      icon = '📜';
-    }
-
-    row.innerHTML = `
-      <div class="flex items-center gap-2 text-xs text-slate-300">
-        <span class="action-tag ${tagClass}">
-          ${icon} ${action.type}
-        </span>
-        <span class="truncate">
-          ${action.targetId ? `Mark [${action.targetId}]` : ''} 
-          ${action.label ? `"${action.label}"` : (action.payload || '')}
-        </span>
-      </div>
-    `;
+    if (!activeAssistantContainer) createAssistantSlot();
+    const step = document.createElement('div');
+    step.className = 'trace-step';
+    step.dataset.step = stepIndex;
+    const title = document.createElement('div');
+    title.className = 'trace-title';
+    title.textContent = stepIndex + ' · ' + (toolLabels[action.type] || action.type.replaceAll('_', ' '));
+    const target = document.createElement('div');
+    target.className = 'trace-target';
+    target.textContent = action.label || action.payload || '';
+    const outcome = document.createElement('div');
+    outcome.className = 'trace-result';
+    outcome.textContent = 'In progress';
+    step.append(title, target, outcome);
+    activeAssistantContainer.appendChild(step);
     scrollToBottom();
   }
 
-  function appendVerificationToStream(stepIndex, ver, preHash, postHash) {
-    const block = document.getElementById(`turn-step-${stepIndex}`);
-    if (!block) return;
-
-    const row = block.querySelector('.verify-row');
-    row.innerHTML = `
-      <div class="text-[11px] ${ver.success ? 'text-emerald-400' : 'text-amber-400'} flex items-center gap-1.5 pl-1">
-        <span>${ver.success ? '✓' : '⚠️'}</span>
-        <span>${ver.message}</span>
-      </div>
-    `;
+  function appendVerificationToStream(stepIndex, verification) {
+    const outcome = activeAssistantContainer?.querySelector('[data-step="' + stepIndex + '"] .trace-result');
+    if (!outcome) return;
+    outcome.dataset.outcome = verification.success ? 'success' : 'failed';
+    outcome.textContent = (verification.success ? 'Verified · ' : 'Could not verify · ') + verification.message;
     scrollToBottom();
   }
 
@@ -715,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const summary = document.createElement('div');
     summary.className = 'assistant-answer';
-    const label = res.isConversational ? '💬 NovaClaw' : '✨ Done';
+    const label = res.isConversational ? 'NovaClaw' : 'Task result';
     const body = renderMarkdown(cleanAnswer(res.summary || ''));
     summary.innerHTML = `<div class="assistant-label">${label}</div><div class="md-body">${body}</div>`;
     activeAssistantContainer.appendChild(summary);
@@ -772,13 +630,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!activeAssistantContainer) createAssistantSlot();
 
     const err = document.createElement('div');
-    err.className = 'p-3 rounded-2xl bg-rose-950/40 border border-rose-900/60 text-xs text-rose-300 space-y-2';
-    err.innerHTML = `
-      <div class="font-bold flex items-center gap-1.5 text-rose-400">
-        <span>⚠️</span> Action Halt
-      </div>
-      <div>${escapeHtml(errMsg)}</div>
-    `;
+    err.className = 'task-error';
+    const title = document.createElement('strong');
+    title.textContent = 'Unable to continue';
+    const message = document.createElement('div');
+    message.textContent = errMsg;
+    err.append(title, message);
+    if (/Android Accessibility settings/.test(errMsg)) {
+      const enable = document.createElement('button');
+      enable.type = 'button';
+      enable.className = 'setup-button';
+      enable.textContent = 'Open Accessibility settings';
+      enable.addEventListener('click', () => window.AndroidBridge.openAccessibilitySettings());
+      err.appendChild(enable);
+    } else if (/Model Hub/.test(errMsg)) {
+      const hub = document.createElement('button');
+      hub.type = 'button';
+      hub.className = 'setup-button';
+      hub.textContent = 'Open model hub';
+      hub.addEventListener('click', openModelModal);
+      err.appendChild(hub);
+    }
     activeAssistantContainer.appendChild(err);
     scrollToBottom();
   }
@@ -791,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
-    return div.innerHTML;
+    return div.innerHTML.replaceAll('"', '&quot;');
   }
 
   const thoughtToggle = document.getElementById('thoughtToggleBtn');
@@ -805,26 +677,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 9. Agent Loop Controller
   const agent = new AgentLoop({
-    pruner,
-    safetyShield,
-    verifier,
     modelEngine,
-    environment: deviceEnv,
-    maxSteps: Infinity,
     onStateChange: (state) => {
-      if (state === 'IDLE') {
-        executionStatusBar.classList.add('hidden');
-      } else {
-        executionStatusBar.classList.remove('hidden');
-        agentStateLabel.textContent = `${state}...`;
+      const labels = {
+        OBSERVING: 'Reading the screen', LOADING_MODEL: 'Loading the on-device model',
+        THINKING: 'Choosing the next step',
+        ACTING: 'Running an action', SAFETY_CHECK: 'Waiting for your approval',
+        STOPPING: 'Stopping…'
+      };
+      const running = state !== 'IDLE';
+      executionStatusBar.classList.toggle('hidden', !running);
+      sendActionBtn.disabled = running;
+      topNewChatBtn.disabled = running;
+      drawerNewChatBtn.disabled = running;
+      stopExecutionBtn.disabled = state === 'STOPPING';
+      agentStateLabel.textContent = labels[state] || 'Starting';
+      if (!running) {
+        stepCounterLabel.textContent = '';
+        activeSafetyApprovalKey = null;
+        safetyModal.classList.add('hidden');
       }
     },
-    onStep: (step) => {
-      const modelName = modelEngine.getSelectedModel().name.split(' ')[1] || 'Gemma 4';
-      stepCounterLabel.textContent = `Step ${step.stepIndex} • ${modelName} Active`;
+    onStep: ({ stepIndex, appName }) => {
+      stepCounterLabel.textContent = 'Step ' + stepIndex + (appName ? ' · ' + appName : '');
     },
-    onThought: ({ stepIndex, thought, plan }) => {
-      appendThoughtToStream(stepIndex, thought, plan);
+    onThought: ({ stepIndex, thought, backend }) => {
+      appendThoughtToStream(stepIndex, thought, backend);
     },
     onAction: ({ stepIndex, action }) => {
       appendActionToStream(stepIndex, action);
@@ -835,11 +713,17 @@ document.addEventListener('DOMContentLoaded', () => {
     onSafetyPrompt: ({ safetyResult, action, stepIndex }) => {
       activeSafetyApprovalKey = safetyResult.approvalKey;
       safetyReasonText.textContent = safetyResult.reason;
-      safetyTargetText.textContent = `Action: ${action.type} -> "${action.label || action.payload}"`;
+      safetyTargetText.textContent = action.label || action.payload;
+      safetyBlockBtn.focus();
       safetyModal.classList.remove('hidden');
     },
     onComplete: (res) => {
       appendCompletionToStream(res);
+    },
+    onStopped: () => {
+      const step = activeAssistantContainer?.querySelector(".trace-result:not([data-outcome])");
+      if (step) step.textContent = "Stopped before verification";
+      appendCompletionToStream({ summary: "Stopped", isConversational: false });
     },
     onError: (err) => {
       appendErrorToStream(err);
@@ -850,9 +734,10 @@ document.addEventListener('DOMContentLoaded', () => {
   chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const prompt = chatInput.value.trim();
-    if (!prompt) return;
+    if (!prompt || agent.isRunning) return;
 
     chatInput.value = '';
+    chatInput.blur();
     executeUserPrompt(prompt);
   });
 
@@ -861,34 +746,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addUserMessage(prompt);
 
-    // Permission Guard: If native and Accessibility is disabled, inform user immediately
-    if (isAndroidNative) {
-      const a11y = window.AndroidBridge.isAccessibilityEnabled();
-      if (!a11y) {
-        appendErrorToStream("Accessibility Service is currently disabled. NovaClaw cannot see or control your phone screen until permission is granted.\n\nPlease tap 'Enable' in the top banner (or open Phone Settings > Accessibility > NovaClaw AI). On Android 14, remember to tap 3-dots > 'Allow restricted settings' in App Info first if it is grayed out.");
-        return;
-      }
-    }
-
-    // Model Guard: If no model weights and no API key, prompt user to download
-    if (!modelEngine.isModelReady()) {
-      appendErrorToStream("No on-device AI model is installed yet. Please tap 'Install Gemma 4' in the top banner or side drawer to download model weights (1.45 GB) or configure a free Gemini API key for instant testing.");
-      openModelModal();
-      return;
-    }
-
-    // Execute Autonomous Agent ReAct Loop
     agent.start(prompt);
   }
 
-  // Suggestion Buttons
-  document.querySelectorAll('.chatgpt-suggestion-row, .chatgpt-suggestion-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const p = btn.getAttribute('data-prompt');
-      if (p) {
-        closeDrawer();
-        executeUserPrompt(p);
-      }
+  document.querySelectorAll('.example-prompt').forEach(button => {
+    button.addEventListener('click', () => {
+      chatInput.value = button.dataset.prompt;
+      chatInput.focus();
     });
   });
 
@@ -900,23 +764,27 @@ document.addEventListener('DOMContentLoaded', () => {
   // Safety Confirmation Handlers
   safetyBlockBtn.addEventListener('click', () => {
     safetyModal.classList.add('hidden');
-    agent.stop();
+    if (activeSafetyApprovalKey) agent.denySafety(activeSafetyApprovalKey);
   });
 
   safetyAllowBtn.addEventListener('click', () => {
     safetyModal.classList.add('hidden');
     if (activeSafetyApprovalKey) {
       agent.resumeAfterSafetyApproval(activeSafetyApprovalKey);
+      activeSafetyApprovalKey = null;
     }
   });
 
   // New Chat Buttons
   function resetConversation() {
-    agent.stop();
+    if (agent.isRunning) return;
     if (isAndroidNative && window.AndroidBridge && window.AndroidBridge.newConversation) {
       window.AndroidBridge.newConversation();
     }
-    messageStream.innerHTML = '';
+    messageStream.replaceChildren();
+    activeAssistantContainer = null;
+    document.getElementById('thoughtList').replaceChildren();
+    closeThoughtPanel();
     homePromptSection.classList.remove('hidden');
     refreshStatus();
     closeDrawer();

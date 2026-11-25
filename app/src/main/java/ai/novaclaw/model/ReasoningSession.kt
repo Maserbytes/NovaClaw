@@ -12,5 +12,4 @@ interface ReasoningSession : AutoCloseable {
         prompt: String,
         timeoutMs: Long = 120_000L,
     ): ModelReply = throw UnsupportedOperationException("This session has no vision support")
-    fun markDirty() {}
 }

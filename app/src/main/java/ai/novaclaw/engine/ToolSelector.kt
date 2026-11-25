@@ -28,7 +28,7 @@ object ToolSelector {
             PipelineRouter.route(goal) == PipelineRouter.Route.DeviceInfo ->
                 pick("get_device_info", "finish")
             g.contains("send ") || g.contains("message ") || g.contains("reply ") || g.contains("tell ") ->
-                pick("send_message", "open_app", "finish")
+                pick("send_message", "open_app", "tap_node", "t", "scroll", "finish")
             else ->
                 pick("open_app", "tap_node", "t", "scroll", "system_key", "web_search", "finish")
         }

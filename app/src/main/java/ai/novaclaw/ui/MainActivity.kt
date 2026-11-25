@@ -97,8 +97,15 @@ class MainActivity : AppCompatActivity() {
                 useWideViewPort = true
                 loadWithOverviewMode = true
             }
-            webViewClient = WebViewClient()
-            setBackgroundColor(0x0D0D0D)
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: android.webkit.WebResourceRequest): Boolean {
+                    if (request.isForMainFrame && request.url.scheme in listOf("https", "http")) {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
+                    }
+                    return true
+                }
+            }
+            setBackgroundColor(0x0A1112)
         }
 
         bridge = NovaWebBridge(this)
@@ -111,7 +118,7 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         val root = android.widget.FrameLayout(this).apply {
             fitsSystemWindows = true
-            setBackgroundColor(0xFF0D0D0D.toInt())
+            setBackgroundColor(0xFF0A1112.toInt())
             addView(webView, android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
@@ -178,13 +185,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal fun ensureAgentLoop(): AgentLoop {
-        val service = NovaAccessibilityService.instance
-            ?: error("Accessibility service not connected")
         return agentLoop ?: AgentLoop(
             context = applicationContext,
             engine = engine,
             cloudEngine = cloudEngine,
-            accessibility = service,
             tools = ai.novaclaw.engine.ToolRegistry(applicationContext),
             safety = safety,
             sessionStore = sessionStore,
@@ -193,7 +197,6 @@ class MainActivity : AppCompatActivity() {
                 sendEvent(event)
                 if (event is AgentEvent.State && event.name == "IDLE") stopForegroundTask()
                 if (event is AgentEvent.Step) updateForegroundTask("Step ${event.index} · ${event.app}")
-                if (event is AgentEvent.Complete || event is AgentEvent.Error) stopForegroundTask()
             }
         ).also { agentLoop = it }
     }

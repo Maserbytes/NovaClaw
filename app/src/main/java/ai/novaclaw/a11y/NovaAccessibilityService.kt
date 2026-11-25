@@ -2,7 +2,6 @@ package ai.novaclaw.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
-import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.graphics.Path
 import android.graphics.Rect
@@ -16,6 +15,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.util.Locale
@@ -128,7 +128,7 @@ class NovaAccessibilityService : AccessibilityService() {
 
         while (queue.isNotEmpty() && nodes.size < MAX_NODES) {
             val (node, depth) = queue.removeFirst()
-            if (depth > MAX_DEPTH || !node.isVisibleToUser) continue
+            if (depth > MAX_DEPTH || !node.isVisibleToUser || node.isPassword) continue
             val bounds = Rect().also { node.getBoundsInScreen(it) }
             if (bounds.width() < 8 || bounds.height() < 8) continue
 
@@ -252,8 +252,9 @@ class NovaAccessibilityService : AccessibilityService() {
     private fun assertFresh(observedGeneration: Long?): String? {
         if (observedGeneration == null) return "No observed generation supplied"
         val current = generation.get()
-        if (current != observedGeneration) {
-            return "Stale screen snapshot ($observedGeneration != $current); re-observe before acting"
+        if (current != observedGeneration ||
+            rootInActiveWindow?.packageName?.toString() != lastSnapshot?.packageName) {
+            return "The active screen changed. Re-observe before acting."
         }
         return null
     }
@@ -286,7 +287,32 @@ class NovaAccessibilityService : AccessibilityService() {
         }
         val node = lastSnapshot?.node(id)
             ?: return@withContext ActionOutcome(false, "Unknown node $id in current snapshot", "", "", 0L)
-        tapAt(node.centerX, node.centerY)
+        val root = rootInActiveWindow
+            ?: return@withContext ActionOutcome(false, "No active window", "", "", 0L)
+        val target = findClickable(root, node)
+            ?: return@withContext ActionOutcome(false, "The observed control moved or disappeared", "", "", 0L)
+        val started = System.currentTimeMillis()
+        val pre = currentFingerprint()
+        val accepted = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        val (changed, post) = if (accepted) settleAndFingerprint(pre) else false to pre
+        val focused = accepted && target.refresh() && target.isEditable && target.isFocused
+        ActionOutcome(accepted && (changed || focused), when {
+            focused -> "Input field focused"
+            changed -> "Screen changed after tap"
+            else -> "Android did not confirm the tap"
+        }, pre, post, System.currentTimeMillis() - started)
+    }
+
+    private fun findClickable(root: AccessibilityNodeInfo, node: UiNode): AccessibilityNodeInfo? {
+        if (!root.isVisibleToUser) return null
+        val label = (root.text ?: root.contentDescription ?: root.viewIdResourceName?.substringAfterLast('/'))
+            ?.toString()?.trim().orEmpty()
+        if (root.isClickable && root.isEnabled && label == node.label &&
+            Rect().also(root::getBoundsInScreen) == node.bounds) return root
+        for (i in 0 until root.childCount) {
+            root.getChild(i)?.let { findClickable(it, node) }?.let { return it }
+        }
+        return null
     }
 
     suspend fun scroll(direction: String, observedGeneration: Long?): ActionOutcome = withContext(Dispatchers.Default) {
@@ -298,7 +324,7 @@ class NovaAccessibilityService : AccessibilityService() {
 
         // Prefer the native scroll action on a scrollable container.
         val root = rootInActiveWindow
-        val scrolled = root?.let { scrollNative(it, direction.equals("up", true)) } ?: false
+        val scrolled = root?.let { scrollNative(it, direction.equals("down", true)) } ?: false
         if (scrolled) {
             val (changed, post) = settleAndFingerprint(pre)
             return@withContext ActionOutcome(
@@ -312,9 +338,9 @@ class NovaAccessibilityService : AccessibilityService() {
         val down = !direction.equals("up", ignoreCase = true)
         val path = Path().apply {
             if (down) {
-                moveTo(w * 0.5f, h * 0.28f); lineTo(w * 0.5f, h * 0.78f)
-            } else {
                 moveTo(w * 0.5f, h * 0.78f); lineTo(w * 0.5f, h * 0.28f)
+            } else {
+                moveTo(w * 0.5f, h * 0.28f); lineTo(w * 0.5f, h * 0.78f)
             }
         }
         val duration = 450L
@@ -356,7 +382,7 @@ class NovaAccessibilityService : AccessibilityService() {
             val started = System.currentTimeMillis()
             val root = rootInActiveWindow
                 ?: return@withContext ActionOutcome(false, "No active window", pre, pre, 0L)
-            val target = findNodeAt(root, nodeInfo.bounds) ?: findEditable(root)
+            val target = findNodeAt(root, nodeInfo.bounds)
             if (target == null) {
                 return@withContext ActionOutcome(false, "Editable field not found", pre, pre, 0L)
             }
@@ -376,8 +402,8 @@ class NovaAccessibilityService : AccessibilityService() {
                     Thread.sleep(150 + attempt * 100L)
                 }
             }
-            val (changed, post) = settleAndFingerprint(pre)
-            val verified = accepted && (changed || containsText(text))
+            val post = if (accepted) settleAndFingerprint(pre).second else pre
+            val verified = accepted && target.refresh() && target.text?.toString() == text
             ActionOutcome(
                 verified,
                 if (verified) "Text set and verified" else "Text action accepted but read-back failed",
@@ -388,53 +414,30 @@ class NovaAccessibilityService : AccessibilityService() {
     private fun findNodeAt(root: AccessibilityNodeInfo, bounds: Rect): AccessibilityNodeInfo? {
         if (!root.isVisibleToUser) return null
         val r = Rect().also { root.getBoundsInScreen(it) }
-        if (Rect.intersects(r, bounds) && (root.isEditable || root.isFocused)) return root
+        if (r == bounds && root.isEditable && !root.isPassword) return root
         for (i in 0 until root.childCount) {
             root.getChild(i)?.let { findNodeAt(it, bounds)?.let { found -> return it } }
         }
         return null
     }
 
-    private fun findEditable(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        if (root.isEditable && root.isVisibleToUser) return root
-        for (i in 0 until root.childCount) {
-            root.getChild(i)?.let { findEditable(it)?.let { return it } }
-        }
-        return null
-    }
-
-    suspend fun typeIntoFocused(text: String): ActionOutcome = withContext(Dispatchers.Default) {
+    suspend fun typeIntoFocused(text: String, generation: Long?): ActionOutcome = withContext(Dispatchers.Default) {
+        assertFresh(generation)?.let { return@withContext ActionOutcome(false, it, "", "", 0L) }
         val pre = currentFingerprint()
         val started = System.currentTimeMillis()
-        val root = rootInActiveWindow
-            ?: return@withContext ActionOutcome(false, "No active window", pre, pre, 0L)
-        val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root)
-            ?: return@withContext ActionOutcome(false, "No focused or editable field found", pre, pre, 0L)
+        val target = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            ?.takeIf { it.isEditable && !it.isPassword }
+            ?: return@withContext ActionOutcome(false, "Focus a visible text field first", pre, pre, 0L)
 
-        target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
         val accepted = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        val (changed, post) = settleAndFingerprint(pre)
-        val verified = accepted && (changed || containsText(text))
-        ActionOutcome(
-            verified,
-            if (verified) "Text entered" else "Text set action performed",
-            pre, post, System.currentTimeMillis() - started
-        )
-    }
-
-    private fun containsText(text: String): Boolean {
-        val root = rootInActiveWindow ?: return false
-        val found = AtomicBoolean(false)
-        fun walk(n: AccessibilityNodeInfo, depth: Int) {
-            if (found.get() || depth > MAX_DEPTH) return
-            if (n.text?.toString()?.contains(text, true) == true) { found.set(true); return }
-            for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
-        }
-        walk(root, 0)
-        return found.get()
+        val post = if (accepted) settleAndFingerprint(pre).second else pre
+        val verified = accepted && target.refresh() && target.text?.toString() == text
+        ActionOutcome(verified,
+            if (verified) "Text entered" else "Android did not confirm the entered text",
+            pre, post, System.currentTimeMillis() - started)
     }
 
     suspend fun back(): ActionOutcome = globalAction(GLOBAL_ACTION_BACK, "back")
@@ -450,22 +453,18 @@ class NovaAccessibilityService : AccessibilityService() {
                 pre, post, System.currentTimeMillis() - started)
         }
 
-    /** Shell key events with a hard timeout — no unbounded waitFor(). */
-    @SuppressLint("PrivateApi")
-    suspend fun keyEvent(keyCode: Int): ActionOutcome = withContext(Dispatchers.Default) {
+    suspend fun submitFocusedField(generation: Long?): ActionOutcome = withContext(Dispatchers.Default) {
+        assertFresh(generation)?.let { return@withContext ActionOutcome(false, it, "", "", 0L) }
         val pre = currentFingerprint()
-        val started = System.currentTimeMillis()
-        var process: Process? = null
-        val ok = try {
-            process = Runtime.getRuntime().exec(arrayOf("input", "keyevent", keyCode.toString()))
-            process!!.waitFor(4, TimeUnit.SECONDS)
-        } catch (_: Exception) {
-            false
-        } finally {
-            process?.let { if (it.isAlive) it.destroyForcibly() }
-        }
-        val (changed, post) = if (ok) settleAndFingerprint(pre) else false to pre
-        ActionOutcome(ok && changed, "keyevent $keyCode", pre, post, System.currentTimeMillis() - started)
+        val start = System.currentTimeMillis()
+        val target = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        val accepted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            target?.isEditable == true && !target.isPassword &&
+            target.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+        val (changed, post) = if (accepted) settleAndFingerprint(pre) else false to pre
+        ActionOutcome(changed,
+            if (changed) "Input submitted" else "Use a visible submit or search control",
+            pre, post, System.currentTimeMillis() - start)
     }
 
     private fun currentFingerprint(): String {
@@ -490,23 +489,34 @@ class NovaAccessibilityService : AccessibilityService() {
         val pre = currentFingerprint()
         val started = System.currentTimeMillis()
         val intent = packageManager.getLaunchIntentForPackage(packageName)
-            ?: return@withContext ActionOutcome(false, "App not installed: $packageName", pre, pre, 0L)
+            ?: return@withContext ActionOutcome(false, "No launchable app matches $packageName", pre, pre, 0L)
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
-        Thread.sleep(400)
-        val (changed, post) = settleAndFingerprint(pre)
-        ActionOutcome(changed, if (changed) "App opened" else "Launch sent but screen unchanged",
-            pre, post, System.currentTimeMillis() - started)
+        repeat(25) {
+            delay(120)
+            if (rootInActiveWindow?.packageName?.toString() == packageName) {
+                val label = intent.component?.let { packageManager.getActivityInfo(it, 0).loadLabel(packageManager) }
+                    ?: packageName
+                return@withContext ActionOutcome(true, "Opened $label", pre, currentFingerprint(),
+                    System.currentTimeMillis() - started)
+            }
+        }
+        ActionOutcome(false, "Android did not show $packageName in the foreground", pre, currentFingerprint(),
+            System.currentTimeMillis() - started)
     }
 
     fun resolvePackage(name: String): String? {
-        val q = name.trim().lowercase(Locale.getDefault())
+        val query = name.trim().lowercase(Locale.ROOT)
+        if (query.isEmpty()) return null
         val apps = packageManager.getInstalledApplications(0)
-        return apps.firstOrNull { app ->
-            val label = packageManager.getApplicationLabel(app).toString().lowercase(Locale.getDefault())
-            (label == q || label.contains(q) || q.contains(label)) &&
-                packageManager.getLaunchIntentForPackage(app.packageName) != null
-        }?.packageName
+            .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
+        apps.firstOrNull {
+            it.packageName.equals(query, true) ||
+                packageManager.getApplicationLabel(it).toString().equals(query, true)
+        }?.let { return it.packageName }
+        return apps.filter { packageManager.getApplicationLabel(it).toString().contains(query, true) }
+            .singleOrNull()?.packageName
     }
+
 
 }

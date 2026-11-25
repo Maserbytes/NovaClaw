@@ -174,7 +174,6 @@ class CloudEngine(private val context: Context) {
                     thought = null,
                     toolCalls = calls,
                     backend = "Gemini $modelId (cloud)",
-                    raw = body.take(2000),
                 )
             }
         }

@@ -14,7 +14,7 @@ object ConversationRouter {
         "(?i)\\b(open|launch|start|send|text|call|dial|tap|click|swipe|scroll|" +
             "install|uninstall|navigate|go to|turn on|turn off|switch on|switch off|" +
             "enable|disable|search in|look up in|message|reply to|check my|read my|" +
-            "take a screenshot|what'?s on (my|the) screen|play|pause|stop music)\\b"
+            "take a screenshot|what(?:'s| is) on (my|the|this) screen|what can you see|play|pause|stop music)\\b"
     )
 
     /** A pure "open <app>" request is handled instantly without inference. */
@@ -31,5 +31,5 @@ object ConversationRouter {
      * True when this is a normal LLM request that needs no phone control.
      * Greetings, questions, explanations, writing, coding, reasoning — all chat.
      */
-    fun isChatOnly(goal: String): Boolean = !phoneAction.containsMatchIn(goal)
+    fun isChatOnly(goal: String): Boolean = TaskShortcuts.match(goal) == null && !phoneAction.containsMatchIn(goal)
 }

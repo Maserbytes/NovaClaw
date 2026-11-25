@@ -19,6 +19,7 @@ class AgentLoop {
       onVerification: options.onVerification || (() => {}),
       onSafetyPrompt: options.onSafetyPrompt || (() => {}),
       onComplete: options.onComplete || (() => {}),
+      onStopped: options.onStopped || (() => {}),
       onError: options.onError || (() => {}),
     };
     this.state = 'IDLE';
@@ -37,17 +38,20 @@ class AgentLoop {
     this.goal = goal;
     this.stepIndex = 0;
     this.isRunning = true;
-    this._setState('OBSERVING');
+    this._setState('STARTING');
     const modelId = this.modelEngine && this.modelEngine.getNativeModelId
       ? this.modelEngine.getNativeModelId() : 'gemma4-e2b';
     const ok = window.AndroidBridge.submitTask(goal, modelId);
-    if (!ok) this.isRunning = false;
+    if (!ok) {
+      this.isRunning = false;
+      this._setState("IDLE");
+    }
   }
 
   stop() {
+    if (!this.isRunning || this.state === 'STOPPING') return;
+    this._setState('STOPPING');
     if (window.AndroidBridge && window.AndroidBridge.stopTask) window.AndroidBridge.stopTask();
-    this.isRunning = false;
-    this._setState('IDLE');
   }
 
   resumeAfterSafetyApproval(approvalKey) {
@@ -121,7 +125,6 @@ if (typeof window !== 'undefined') {
       });
       break;
     case 'complete':
-      loop.isRunning = false;
       loop.callbacks.onComplete({
         success: true,
         goal: loop.goal,
@@ -130,8 +133,10 @@ if (typeof window !== 'undefined') {
         summary: e.summary,
       });
       break;
+    case 'stopped':
+      loop.callbacks.onStopped();
+      break;
     case 'error':
-      loop.isRunning = false;
       loop.callbacks.onError(e.message);
       break;
   }

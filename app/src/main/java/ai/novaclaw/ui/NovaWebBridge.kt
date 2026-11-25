@@ -83,9 +83,7 @@ class NovaWebBridge(private val activity: MainActivity) {
     fun checkModelStatus(fileName: String): String {
         val model = ModelCatalog.LOCAL.firstOrNull { it.fileName == fileName }
         val file = if (model != null) runCatching { java.io.File(ModelCatalog.path(context, model)) }.getOrNull() else null
-        // Lenient status check: a real .litertlm file is at least tens of MB.
-        // Strict size/hash verification still happens before inference.
-        val installed = file != null && file.exists() && file.length() > 10L * 1024 * 1024
+        val installed = model != null && runCatching { ModelCatalog.isInstalled(context, model) }.getOrDefault(false)
         return JSONObject().apply {
             put("installed", installed)
             put("fileName", fileName)
@@ -190,9 +188,9 @@ class NovaWebBridge(private val activity: MainActivity) {
         val model = ModelCatalog.byId(modelId) ?: ModelCatalog.recommended(context)
         return try {
             val loop = activity.ensureAgentLoop()
+            if (loop.isRunning) return false
             activity.startForegroundTask(prompt)
             loop.start(prompt, model)
-            true
         } catch (t: Throwable) {
             activity.sendEvent(AgentEvent.Error(t.message ?: "Could not start agent"))
             false

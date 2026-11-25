@@ -51,12 +51,16 @@ class SafetyShield {
             }
         }
 
-        val text = args.values.joinToString(" ") { it?.toString().orEmpty() }
+        val nodeLabel = args["node_id"]?.toString()?.let { snapshot?.node(it)?.label }.orEmpty()
+        if (tool == "send_message" || (tool == "tap_node" && Regex("(?i)^(send|post|publish)(\\b|_)").containsMatchIn(nodeLabel))) {
+            return requireConfirmation("Confirm this action before it leaves your device", tool)
+        }
+        val text = (args.values.joinToString(" ") { it?.toString().orEmpty() } + " " + nodeLabel).trim()
         destructivePatterns.firstOrNull { Regex(it).containsMatchIn(text) }?.let {
             return requireConfirmation("Destructive or financial action detected", "$tool -> $text")
         }
 
-        if (protectedPackages.any { target.contains(it, true) } && tool in setOf("tap_node", "tap", "input_text")) {
+        if (protectedPackages.any { target.contains(it, true) } && tool in setOf("tap_node", "tap", "input_text", "t")) {
             return SafetyVerdict(
                 allowed = false,
                 reason = "Action blocked inside protected app: $label ($target)",

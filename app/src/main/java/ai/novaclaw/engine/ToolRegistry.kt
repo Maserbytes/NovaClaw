@@ -80,11 +80,13 @@ class ToolRegistry(private val context: Context) {
         snapshot: ScreenSnapshot?,
     ): ToolResult {
         val service = NovaAccessibilityService.instance
-            ?: return ToolResult(false, "Accessibility service is not connected")
+        if (service == null && tool in setOf("open_app", "tap_node", "tap", "t", "scroll", "system_key", "see_screen", "send_message")) {
+            return ToolResult(false, "Accessibility service is not connected")
+        }
         val generation = snapshot?.generation
 
         val outcome: ActionOutcome? = when (tool) {
-            "open_app" -> service.openApp(service.resolvePackage(args["app_name"]?.toString().orEmpty())
+            "open_app" -> service!!.openApp(service.resolvePackage(args["app_name"]?.toString().orEmpty())
                 ?: args["app_name"]?.toString().orEmpty())
 
             "tap_node" -> {
@@ -96,7 +98,7 @@ class ToolRegistry(private val context: Context) {
                         false, "Node $id (${node.label.take(30)}) is not clickable — refusing ambiguous tap", "", "", 0L)
                     node.label.isBlank() -> ActionOutcome(
                         false, "Node $id has no label — refusing ambiguous tap", "", "", 0L)
-                    else -> service.tapNode(id, generation)
+                    else -> service!!.tapNode(id, generation)
                 }
             }
 
@@ -105,22 +107,20 @@ class ToolRegistry(private val context: Context) {
                 val x = parts?.getOrNull(0)?.trim()?.toIntOrNull()
                 val y = parts?.getOrNull(1)?.trim()?.toIntOrNull()
                 if (x == null || y == null) ActionOutcome(false, "tap needs at=\"x,y\"", "", "", 0L)
-                else service.tapAt(x, y)
+                else service!!.tapAt(x, y)
             }
 
             "t" -> {
                 val text = args["text"]?.toString().orEmpty()
-                val id = args["node_id"]?.toString() ?: snapshot?.nodes?.firstOrNull { it.editable }?.id
-                if (id != null) service.setText(id, generation, text)
-                else service.typeIntoFocused(text)
+                service!!.typeIntoFocused(text, generation)
             }
 
-            "scroll" -> service.scroll(args["direction"]?.toString() ?: "down", generation)
+            "scroll" -> service!!.scroll(args["direction"]?.toString() ?: "down", generation)
 
             "system_key" -> when (args["key"]?.toString()?.lowercase()) {
-                "back" -> service.back()
-                "home" -> service.home()
-                "enter" -> service.keyEvent(66)
+                "back" -> service!!.back()
+                "home" -> service!!.home()
+                "enter" -> service!!.submitFocusedField(generation)
                 else -> return ToolResult(false, "Unsupported key")
             }
 

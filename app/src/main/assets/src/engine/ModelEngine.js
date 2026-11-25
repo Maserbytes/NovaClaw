@@ -95,7 +95,12 @@ class ModelEngine {
       this.geminiApiKey = 'saved-in-native-storage';
     }
     this.ollamaEndpoint = 'http://localhost:11434';
-    this.selectedModelId = options.modelId || (this.geminiApiKey ? 'api-gemini' : 'gemma-4-2b-it');
+    let savedModel;
+    try { savedModel = window.localStorage.getItem('nova.selectedModel'); } catch (e) {}
+    const supported = AVAILABLE_MODELS.filter(model => model.nativeId);
+    this.selectedModelId = supported.find(model => model.id === (options.modelId || savedModel))?.id
+      || supported.find(model => model.isLocal && this.isModelReady(model))?.id
+      || (this.geminiApiKey ? 'api-gemini' : 'gemma-4-2b-it');
     this.temperature = options.temperature || 0.2;
     this.isLoaded = true;
   }
@@ -108,7 +113,10 @@ class ModelEngine {
   getNativeModelId() { return this.getSelectedModel().nativeId || 'gemma4-e2b'; }
 
   setModel(modelId) {
-    if (AVAILABLE_MODELS.some(m => m.id === modelId)) this.selectedModelId = modelId;
+    if (AVAILABLE_MODELS.some(model => model.id === modelId && model.nativeId)) {
+      this.selectedModelId = modelId;
+      try { window.localStorage.setItem('nova.selectedModel', modelId); } catch (e) {}
+    }
     return this.getSelectedModel();
   }
 
@@ -120,9 +128,8 @@ class ModelEngine {
   }
   setOllamaEndpoint(url) { this.ollamaEndpoint = (url || '').trim(); }
 
-  isModelReady() {
-    if (!window.AndroidBridge || !window.AndroidBridge.checkModelStatus) return true; // web preview
-    const model = this.getSelectedModel();
+  isModelReady(model = this.getSelectedModel()) {
+    if (!window.AndroidBridge || !window.AndroidBridge.checkModelStatus) return false;
     if (model.kind === 'cloud') return !!this.geminiApiKey;
     if (!model.nativeId) return false;
     try {
