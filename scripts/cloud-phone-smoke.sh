@@ -23,8 +23,8 @@ printf '%s\n' '<?xml version="1.0" encoding="utf-8"?><map><boolean name="externa
 adb shell am start -W -n "$activity"
 adb shell settings put secure enabled_accessibility_services "$service"
 adb shell settings put secure accessibility_enabled 1
-adb shell run-as "$package" mkdir -p "/sdcard/Android/data/$package/files/models"
-adb exec-in "run-as $package sh -c 'cat > /sdcard/Android/data/$package/files/models/$model'" < "smoke-inputs/$model"
+adb shell run-as "$package" mkdir -p files/models
+adb exec-in "run-as $package sh -c 'cat > files/models/$model'" < "smoke-inputs/$model"
 sleep 4
 goal=$(printf %s 'Open Calculator and calculate 24 times 17' | base64 -w0)
 adb shell am broadcast -a ai.novaclaw.RUN_TASK -n "$package/.automation.ExternalAutomationReceiver" \

@@ -94,8 +94,14 @@ object ModelCatalog {
         }.getOrDefault(false)
     }
 
-    fun path(context: Context, model: ModelInfo): String =
-        File(modelsDir(context), model.fileName).absolutePath
+    fun path(context: Context, model: ModelInfo): String {
+        val preferred = File(modelsDir(context), model.fileName)
+        if (preferred.isFile) return preferred.absolutePath
+        // Keep models downloaded during an internal-storage fallback available
+        // when Android later remounts external storage.
+        val internal = File(context.filesDir, "models/${model.fileName}")
+        return if (internal.isFile) internal.absolutePath else preferred.absolutePath
+    }
 
     fun isInstalled(context: Context, model: ModelInfo): Boolean {
         val file = File(path(context, model))
