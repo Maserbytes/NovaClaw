@@ -1,0 +1,9 @@
+torch>=2.8.0
+torchvision>=0.23.0
+transformers>=5.10.1
+trl>=0.16.0
+peft>=0.19.0
+accelerate>=1.6.0
+datasets>=3.5.0
+bitsandbytes>=0.45.5
+huggingface_hub>=0.30.0
